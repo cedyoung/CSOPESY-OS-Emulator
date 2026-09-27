@@ -8,6 +8,7 @@
 
 using namespace std;
 
+atomic<int> marqueeSpeed(50);
 atomic<bool> marqueeRunning(false);
 thread marqueeThread;
 
@@ -35,9 +36,6 @@ string temp_get_text() {
     return "CSOPESY";
 }
 
-int temp_get_speed() {
-    return 50;
-}
 
 void moveCursor(int x, int y) {
     cout << "\033[" << y << ";" << x << "H";
@@ -69,7 +67,7 @@ void marqueeAnimation() {
         }
 
         this_thread::sleep_for(
-            chrono::milliseconds(temp_get_speed())
+            chrono::milliseconds(marqueeSpeed.load)
         );
     }
 }
@@ -102,6 +100,29 @@ void stopMarquee() {
     }
 }
 
+void setSpeed() {
+    string command;
+
+    cout << "Enter speed (ms): ";
+    getline(cin, command);
+
+    try {
+        int newSpeed = stoi(command);
+
+        if (newSpeed <= 0) {
+            cout << "Speed must be a positive integer." << endl;
+            return;
+
+        }
+
+        marqueeSpeed = newSpeed;
+        cout << "Marquee speed set to " << newSpeed << " ms." << endl;
+
+    }
+    catch (const exception&) {
+        cout << "Please enter a valid integer." << endl;
+    }
+}
 
 int main() {
     string command;
@@ -138,6 +159,10 @@ int main() {
 
         else if (command == "stop_marquee") {
             stopMarquee();
+        }
+
+        else if (command == "set_speed") {
+            setSpeed();
         }
 
         else if (command == "clear") {
