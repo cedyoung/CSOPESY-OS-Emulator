@@ -2,8 +2,14 @@
 #include <iostream>
 #include <string>
 #include <cstdlib>
+#include <thread>
+#include <chrono>
+#include <atomic>
 
 using namespace std;
+
+atomic<bool> marqueeRunning(false);
+thread marqueeThread;
 
 void displayHeader() {
     cout << R"(
@@ -24,6 +30,78 @@ void displayHeader() {
 void clearScreen() {
     cout << "\033[2J\033[1;1H";
 }
+
+string temp_get_text() {
+    return "CSOPESY";
+}
+
+int temp_get_speed() {
+    return 50;
+}
+
+void moveCursor(int x, int y) {
+    cout << "\033[" << y << ";" << x << "H";
+}
+
+void marqueeAnimation() {
+    int x = 1;
+    int y = 1;
+    int dx = 1;
+    int dy = 1;
+
+    while (marqueeRunning) {
+        cout << "\033[2J\033[H";
+        
+        // Move cursor to y, x
+        cout << "\033[" << y << ";" << x << "H";
+
+        cout << temp_get_text() << flush;
+        x += dx;
+        y += dy;
+
+        // Bounce left/right
+        if (x <= 1 || x >= 70) {
+            dx *= -1;
+        }
+        // Bounce top/bottom
+        if (y <= 1 || y >= 20) {
+            dy *= -1;
+        }
+
+        this_thread::sleep_for(
+            chrono::milliseconds(temp_get_speed())
+        );
+    }
+}
+
+void startMarquee() {
+    if (!marqueeRunning) {
+        marqueeRunning = true;
+        marqueeThread = thread(marqueeAnimation);
+        cout << "Marquee started." << endl;
+    }
+
+    else {
+        cout << "Marquee is already running." << endl;
+    }
+}
+
+void stopMarquee() {
+    if (marqueeRunning) {
+        marqueeRunning = false;
+
+        if (marqueeThread.joinable()) {
+            marqueeThread.join();
+        }
+
+        cout << "Marquee stopped." << endl;
+    }
+
+    else {
+        cout << "Marquee is not running." << endl;
+    }
+}
+
 
 int main() {
     string command;
@@ -52,6 +130,14 @@ int main() {
 
         else if (command == "report-util") {
             cout << "report-util command recognized. Doing something." << endl;
+        }
+
+        else if (command == "start_marquee") {
+            startMarquee();
+        }
+
+        else if (command == "stop_marquee") {
+            stopMarquee();
         }
 
         else if (command == "clear") {
