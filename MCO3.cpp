@@ -32,8 +32,17 @@ void clearScreen() {
     cout << "\033[2J\033[1;1H";
 }
 
-string temp_get_text() {
-    return "CSOPESY";
+//getSet = true to get text, getSet = false to set text
+string marqueeText(bool getSet, string text){
+    static string marqueeText;
+
+    if(getSet){
+        return marqueeText;
+    }else{
+        marqueeText = text;
+        return "";
+    }
+
 }
 
 
@@ -53,7 +62,7 @@ void marqueeAnimation() {
         // Move cursor to y, x
         cout << "\033[" << y << ";" << x << "H";
 
-        cout << temp_get_text() << flush;
+        cout << marqueeText(true, "") << flush;
         x += dx;
         y += dy;
 
@@ -126,6 +135,7 @@ void setSpeed() {
 
 int main() {
     string command;
+    string text;
     displayHeader();
 
     while (true) {
@@ -135,6 +145,16 @@ int main() {
 
         if (command == "initialize") {
             cout << "initialize command recognized. Doing something." << endl;
+        }
+
+        else if (command == "help") {
+            cout << "\"help\" - displays the commands and its description.\n"
+                <<  "\"start_marquee\" - starts the marquee \"animation\" \n"
+                <<  "\"stop_marquee\" - stops the marquee \"animation\" \n"
+                <<  "\"set_text\" - accepts a text input and displays it as a marquee\n" 
+                <<  "\"set_speed\" - sets the marquee animation refresh in milliseconds\n"
+                <<  "\"exit\" - terminates the console"
+                << endl;
         }
 
         else if (command == "screen") {
@@ -163,6 +183,12 @@ int main() {
 
         else if (command == "set_speed") {
             setSpeed();
+        }
+
+        else if(command == "set_text"){
+            cout << "Set Marquee Text: ";
+            getline(cin, text);
+            marqueeText(false, text);
         }
 
         else if (command == "clear") {
