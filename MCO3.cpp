@@ -1,16 +1,24 @@
 // Group 4: Jediaelle Denise De Castro, Cedric Young, Abigail Vicencio
 #include <iostream>
 #include <string>
-#include <cstdlib>
 #include <thread>
 #include <chrono>
 #include <atomic>
+#include <mutex>
 
 using namespace std;
 
 atomic<int> marqueeSpeed(50);
 atomic<bool> marqueeRunning(false);
+atomic<bool> marqueeScreenActive(false);
+
 thread marqueeThread;
+mutex consoleMutex;
+
+const int MARQUEE_WIDTH = 70;
+const int MARQUEE_HEIGHT = 15;
+const int STATUS_ROW = 17;
+const int COMMAND_ROW = 19;
 
 void displayHeader() {
     cout << R"(
@@ -32,6 +40,23 @@ void clearScreen() {
     cout << "\033[2J\033[1;1H";
 }
 
+void moveCursor(int x, int y) {
+    cout << "\033[" << y << ";" << x << "H";
+}
+
+void clearLine(int row) {
+    moveCursor(1, row);
+    cout << string(MARQUEE_WIDTH, ' ');
+}
+
+void showStatus(string message) {
+    lock_guard<mutex> lock(consoleMutex);
+
+    clearLine(STATUS_ROW);
+    moveCursor(1, STATUS_ROW);
+    cout << message << flush;
+}
+
 //getSet = true to get text, getSet = false to set text
 string marqueeText(bool getSet, string text){
     static string marqueeText;
@@ -46,9 +71,6 @@ string marqueeText(bool getSet, string text){
 }
 
 
-void moveCursor(int x, int y) {
-    cout << "\033[" << y << ";" << x << "H";
-}
 
 void marqueeAnimation() {
     int x = 1;
@@ -56,40 +78,79 @@ void marqueeAnimation() {
     int dx = 1;
     int dy = 1;
 
-    while (marqueeRunning) {
-        cout << "\033[2J\033[H";
-        
-        // Move cursor to y, x
-        cout << "\033[" << y << ";" << x << "H";
+    int oldX = x;
+    int oldY = y;
 
-        cout << marqueeText(true, "") << flush;
+    string oldText = "";
+
+    while (marqueeRunning) {
+        string text = marqueeText(true, "");
+
+        {
+            lock_guard<mutex> lock(consoleMutex);
+
+            // Save command-line cursor
+            cout << "\033[s";
+
+            // Erase old marquee
+            if (!oldText.empty()) {
+                moveCursor(oldX, oldY);
+                cout << string(oldText.length(), ' ');
+            }
+
+            // Draw new marquee
+            moveCursor(x, y);
+            cout << text;
+
+            // Restore command-line cursor
+            cout << "\033[u" << flush;
+        }
+
+        oldX = x;
+        oldY = y;
+        oldText = text;
+
         x += dx;
         y += dy;
 
-        // Bounce left/right
-        if (x <= 1 || x >= 70) {
-            dx *= -1;
+        if (x <= 1) {
+            x = 1;
+            dx = 1;
         }
-        // Bounce top/bottom
-        if (y <= 1 || y >= 20) {
-            dy *= -1;
+        else if (x + text.length() >= MARQUEE_WIDTH) {
+            x = MARQUEE_WIDTH - text.length();
+            dx = -1;
+        }
+
+        if (y <= 1) {
+            y = 1;
+            dy = 1;
+        }
+        else if (y >= MARQUEE_HEIGHT) {
+            y = MARQUEE_HEIGHT;
+            dy = -1;
         }
 
         this_thread::sleep_for(
-            chrono::milliseconds(marqueeSpeed.load)
+            chrono::milliseconds(marqueeSpeed.load())
         );
     }
 }
 
 void startMarquee() {
     if (!marqueeRunning) {
+        if (!marqueeScreenActive) {
+            clearScreen();
+            marqueeScreenActive = true;
+        }
+
         marqueeRunning = true;
         marqueeThread = thread(marqueeAnimation);
-        cout << "Marquee started." << endl;
+        showStatus("Marquee started.");
     }
 
     else {
-        cout << "Marquee is already running." << endl;
+        showStatus("Marquee is already running.");
     }
 }
 
@@ -101,11 +162,11 @@ void stopMarquee() {
             marqueeThread.join();
         }
 
-        cout << "Marquee stopped." << endl;
+        showStatus("Marquee stopped.");
     }
 
     else {
-        cout << "Marquee is not running." << endl;
+        showStatus("Marquee is not running.");
     }
 }
 
@@ -133,6 +194,15 @@ void setSpeed() {
     }
 }
 
+void printMessage(string message) {
+    if (marqueeScreenActive) {
+        showStatus(message);
+    }
+    else {
+        cout << message << endl;
+    }
+}
+
 int main() {
     string command;
     string text;
@@ -140,11 +210,24 @@ int main() {
 
     while (true) {
 
-        cout << "Enter a command: ";
+        if (marqueeScreenActive) {
+        {
+            lock_guard<mutex> lock(consoleMutex);
+
+            clearLine(COMMAND_ROW);
+            moveCursor(1, COMMAND_ROW);
+            cout << "Enter a command: " << flush;
+        }
+        }
+
+        else {
+            cout << "Enter a command: " << flush;
+        }
         getline(cin, command);
 
+        // commands
         if (command == "initialize") {
-            cout << "initialize command recognized. Doing something." << endl;
+            printMessage("initialize command recognized. Doing something.");
         }
 
         else if (command == "help") {
@@ -186,9 +269,22 @@ int main() {
         }
 
         else if(command == "set_text"){
-            cout << "Set Marquee Text: ";
+            if (marqueeScreenActive) {
+                {
+                    lock_guard<mutex> lock(consoleMutex);
+
+                    clearLine(COMMAND_ROW);
+                    moveCursor(1, COMMAND_ROW);
+                    cout << "Set Marquee Text: " << flush;
+                }
+            }
+            else {
+                cout << "Set Marquee Text: " << flush;
+            }
+
             getline(cin, text);
             marqueeText(false, text);
+            printMessage("Marquee text changed.");
         }
 
         else if (command == "clear") {
@@ -201,10 +297,8 @@ int main() {
         }
 
         else {
-            cout << "Command not recognized." << endl;
+            printMessage("Command not recognized.");
         }
-
-        cout << endl;
     }
 
     return 0;
