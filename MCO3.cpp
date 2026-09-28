@@ -5,6 +5,7 @@
 #include <chrono>
 #include <atomic>
 #include <mutex>
+#include <conio.h>
 
 using namespace std;
 
@@ -19,6 +20,9 @@ const int MARQUEE_WIDTH = 70;
 const int MARQUEE_HEIGHT = 15;
 const int STATUS_ROW = 17;
 const int COMMAND_ROW = 19;
+
+
+const size_t INPUT_MAX_WIDTH = 79;
 
 void displayHeader() {
     cout << R"(
@@ -46,7 +50,7 @@ void moveCursor(int x, int y) {
 
 void clearLine(int row) {
     moveCursor(1, row);
-    cout << string(MARQUEE_WIDTH, ' ');
+    cout << "\033[2K";
 }
 
 void showStatus(string message) {
@@ -55,6 +59,71 @@ void showStatus(string message) {
     clearLine(STATUS_ROW);
     moveCursor(1, STATUS_ROW);
     cout << message << flush;
+}
+
+
+int readKey() {
+    int c = _getch();
+
+
+    if (c == 0 || c == 224) {
+        _getch();
+        return 0;
+    }
+
+    return c;
+}
+
+bool readLine(const string& prompt, string& result) {
+    string line;
+
+
+    auto redraw = [&]() {
+        if (marqueeScreenActive) {
+            moveCursor(1, COMMAND_ROW);
+        }
+        cout << "\r\033[2K" << prompt << line << flush;
+    };
+
+    {
+        lock_guard<mutex> lock(consoleMutex);
+        redraw();
+    }
+
+    while (true) {
+        int key = readKey();
+
+        if (key < 0) {
+            return false;
+        }
+
+        lock_guard<mutex> lock(consoleMutex);
+
+        if (key == '\r' || key == '\n') {
+            if (marqueeScreenActive) {
+                moveCursor(1, COMMAND_ROW + 1);
+            }
+            else {
+                cout << '\n';
+            }
+            cout << flush;
+            break;
+        }
+        else if (key == 8 || key == 127) {
+            if (!line.empty()) {
+                line.pop_back();
+                redraw();
+            }
+        }
+        else if (key >= 32 && key < 127 &&
+                 prompt.length() + line.length() < INPUT_MAX_WIDTH) {
+            line += static_cast<char>(key);
+            redraw();
+        }
+    }
+
+    result = line;
+    return true;
 }
 
 //getSet = true to get text, getSet = false to set text
@@ -89,21 +158,21 @@ void marqueeAnimation() {
         {
             lock_guard<mutex> lock(consoleMutex);
 
-            // Save command-line cursor
-            cout << "\033[s";
 
-            // Erase old marquee
+            cout << "\0337";
+
+
             if (!oldText.empty()) {
                 moveCursor(oldX, oldY);
                 cout << string(oldText.length(), ' ');
             }
 
-            // Draw new marquee
+
             moveCursor(x, y);
             cout << text;
 
-            // Restore command-line cursor
-            cout << "\033[u" << flush;
+
+            cout << "\0338" << flush;
         }
 
         oldX = x;
@@ -170,36 +239,37 @@ void stopMarquee() {
     }
 }
 
-void setSpeed() {
-    string command;
-
-    cout << "Enter speed (ms): ";
-    getline(cin, command);
-
-    try {
-        int newSpeed = stoi(command);
-
-        if (newSpeed <= 0) {
-            cout << "Speed must be a positive integer." << endl;
-            return;
-
-        }
-
-        marqueeSpeed = newSpeed;
-        cout << "Marquee speed set to " << newSpeed << " ms." << endl;
-
-    }
-    catch (const exception&) {
-        cout << "Please enter a valid integer." << endl;
-    }
-}
-
 void printMessage(string message) {
     if (marqueeScreenActive) {
         showStatus(message);
     }
     else {
         cout << message << endl;
+    }
+}
+
+void setSpeed() {
+    string input;
+
+
+    if (!readLine("Enter speed (ms): ", input)) {
+        return;
+    }
+
+    try {
+        int newSpeed = stoi(input);
+
+        if (newSpeed <= 0) {
+            printMessage("Speed must be a positive integer.");
+            return;
+        }
+
+        marqueeSpeed = newSpeed;
+        printMessage("Marquee speed set to " + to_string(newSpeed) + " ms.");
+
+    }
+    catch (const exception&) {
+        printMessage("Please enter a valid integer.");
     }
 }
 
@@ -210,20 +280,9 @@ int main() {
 
     while (true) {
 
-        if (marqueeScreenActive) {
-        {
-            lock_guard<mutex> lock(consoleMutex);
-
-            clearLine(COMMAND_ROW);
-            moveCursor(1, COMMAND_ROW);
-            cout << "Enter a command: " << flush;
+        if (!readLine("Enter a command: ", command)) {
+            break;
         }
-        }
-
-        else {
-            cout << "Enter a command: " << flush;
-        }
-        getline(cin, command);
 
         // commands
         if (command == "initialize") {
@@ -236,6 +295,7 @@ int main() {
                 <<  "\"stop_marquee\" - stops the marquee \"animation\" \n"
                 <<  "\"set_text\" - accepts a text input and displays it as a marquee\n" 
                 <<  "\"set_speed\" - sets the marquee animation refresh in milliseconds\n"
+                << "\"clear\" - clears the screen\n"
                 <<  "\"exit\" - terminates the console"
                 << endl;
         }
@@ -268,23 +328,11 @@ int main() {
             setSpeed();
         }
 
-        else if(command == "set_text"){
-            if (marqueeScreenActive) {
-                {
-                    lock_guard<mutex> lock(consoleMutex);
-
-                    clearLine(COMMAND_ROW);
-                    moveCursor(1, COMMAND_ROW);
-                    cout << "Set Marquee Text: " << flush;
-                }
+        else if (command == "set_text") {
+            if (readLine("Set Marquee Text: ", text)) {
+                marqueeText(false, text);
+                printMessage("Marquee text changed.");
             }
-            else {
-                cout << "Set Marquee Text: " << flush;
-            }
-
-            getline(cin, text);
-            marqueeText(false, text);
-            printMessage("Marquee text changed.");
         }
 
         else if (command == "clear") {
