@@ -1,18 +1,41 @@
 # CSOPESY-OS-Emulator
 
-Authors: 
-Jediaelle Denise De Castro
-Abigail Vicencio
-Cedric Francis Young
+Repository for our **CSOPESY machine projects**, including the Marquee Console project for MCO3 and the Desktop OS Mock-Up for MCO4.
 
-MCO3
-Instructions:
-Run MCO3.cpp file. It contains the main function.
+## Authors
+
+- Jediaelle Denise De Castro
+- Abigail Vicencio
+- Cedric Francis Young
 
 
-MCO4
+## MCO4 — Desktop OS Mock-Up
 
-imgui
+### Instructions
+
+Download `imgui` folder to the MCO4 folder
+
 ```
 git clone https://github.com/ocornut/imgui.git
 ```
+
+Use `build.bat` on Windows
+or
+Run on MacOS
+```
+./build.sh
+```
+
+---
+
+## MCO3 — Marquee Console
+
+### Instructions
+
+Open the `MCO3` folder and compile/run the source file containing the project's `main()` function.
+
+---
+
+## Notes
+
+This repository contains multiple CSOPESY outputs. Each machine project is kept in its own folder so the source code and dependencies remain organized and separate.
