@@ -5,12 +5,10 @@
 //   2. App windows  - File Explorer, Settings, Task Manager
 //   3. Taskbar - app launcher buttons, always kept on top
 
-#include <iostream>
+
 #include <cfloat>
-#include <cmath>
 #include <cstdio>
 #include <ctime>
-#include <string>
 
 #include <GLFW/glfw3.h>
 
@@ -145,7 +143,7 @@ static void RenderFileExplorer(bool* open) {
     static int selectedFolder = -1;
     static int selectedFile = -1;
 
-    const char* folders[] = { "Document", "Downloads", "Pictures", "Vidoes" };
+    const char* folders[] = { "Document", "Downloads", "Pictures", "Videos" };
     const char* files[] = { "Final.txt", "FinalFinal.txt", "ReallyFinal.txt" };
 
     if (ImGui::BeginTable("ExplorerTable", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable)) {
