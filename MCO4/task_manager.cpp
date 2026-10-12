@@ -11,34 +11,21 @@ struct ProcessInfo {
 
 
 void drawTaskManager(bool* open) {
-
-    // Default Task Manager window size
     ImGui::SetNextWindowSize(
         ImVec2(650, 400),
         ImGuiCond_FirstUseEver
     );
 
-    // Do not draw anything if the window is closed
     if (!ImGui::Begin("Task Manager", open)) {
         ImGui::End();
         return;
     }
-
-
-    // ----------------------------
-    // TASK MANAGER HEADER
-    // ----------------------------
 
     ImGui::Text("Task Manager");
     ImGui::Separator();
 
     ImGui::Text("Processes");
     ImGui::Spacing();
-
-
-    // ----------------------------
-    // DUMMY PROCESS DATA
-    // ----------------------------
 
     ProcessInfo processes[] = {
         {"System",          1.2f, 120},
@@ -49,11 +36,6 @@ void drawTaskManager(bool* open) {
         {"Discord.exe",     3.2f, 280},
         {"Notepad.exe",     0.2f, 35}
     };
-
-
-    // ----------------------------
-    // PROCESS TABLE
-    // ----------------------------
 
     ImGuiTableFlags tableFlags =
         ImGuiTableFlags_Borders |
