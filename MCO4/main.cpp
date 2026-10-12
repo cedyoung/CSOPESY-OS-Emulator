@@ -9,6 +9,7 @@
 #include <cfloat>
 #include <cstdio>
 #include <ctime>
+#include <string>
 
 #include <GLFW/glfw3.h>
 
@@ -143,7 +144,7 @@ static void RenderFileExplorer(bool* open) {
     static int selectedFolder = -1;
     static int selectedFile = -1;
 
-    const char* folders[] = { "Document", "Downloads", "Pictures", "Videos" };
+    const char* folders[] = { "Documents", "Downloads", "Pictures", "Videos" };
     const char* files[] = { "Final.txt", "FinalFinal.txt", "ReallyFinal.txt" };
 
     if (ImGui::BeginTable("ExplorerTable", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable)) {
@@ -349,7 +350,7 @@ int main() {
         if (DrawDesktop())
             glfwSetWindowShouldClose(window, GLFW_TRUE);
 
-		// App windows (middle layer)
+        // App windows (middle layer)
         if (showFileExplorer) {
             RenderFileExplorer(&showFileExplorer);
         }
