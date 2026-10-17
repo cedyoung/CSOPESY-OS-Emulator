@@ -30,6 +30,9 @@ struct Process {
 class FCFSScheduler {
 public:
     static constexpr int CPU_CORES = 4;
+    static constexpr int POLL_INTERVAL_MS = 5;
+    static constexpr int EXEC_DELAY_MS = 50;
+    static constexpr bool WRITE_LOG_FILES = true;
 
     FCFSScheduler();
     ~FCFSScheduler();
