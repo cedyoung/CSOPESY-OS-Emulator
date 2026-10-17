@@ -24,7 +24,7 @@ int main() {
         );
     }
 
-    // scheduler.start();
+    scheduler.start();
 
     std::cout
         << "CSOPESY FCFS Scheduler - Week 5 Homework\n";
@@ -58,7 +58,7 @@ int main() {
         }
 
         if (command == "screen -ls") {
-            // scheduler.printScreenList();
+            scheduler.printScreenList();
 
             if (scheduler.allFinished()) {
                 std::cout
@@ -87,6 +87,6 @@ int main() {
         }
     }
 
-    // scheduler.stop();
+    scheduler.stop();
     return 0;
 }
