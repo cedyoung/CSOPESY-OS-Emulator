@@ -194,9 +194,6 @@ void FCFSScheduler::executeProcess(
     Process* process,
     int coreId
 ) {
-    Process* process,
-        int coreId
-        ) {
             std::ofstream logFile;
 
             if (WRITE_LOG_FILES) {
@@ -233,6 +230,35 @@ void FCFSScheduler::executeProcess(
 }
 
 void FCFSScheduler::printScreenList() {
+    std::lock_guard<std::mutex> lock(schedulerMutex);
+
+std::cout << "----------------------------------\n";
+std::cout << "Running processes: \n";
+
+for (Process* p : processes) {
+    if (p -> state == ProcessState::Running) {
+        std::cout << std::left << std::setw(12) << p->name
+            << " (" << p->createdAt << ") "
+            << "Core: " << p->coreId << " "
+            << p->executedCommands.load() << " / "
+            << p->totalCommands << "\n";
+
+    }
+}
+
+std::cout << "\nFinished processes: \n";
+
+for (Process* p : processes) {
+    if (p->state == ProcessState::Finished) {
+        std::cout << std::left << std::setw(12) << p->name
+            << " (" << p->finishedAt << ") "
+            << "Finished "
+            << p->executedCommands.load() << " / "
+            << p->totalCommands << "\n";
+    }
+}
+
+std::cout << "----------------------------------\n\n";
     // TODO:
     // Print:
     //
