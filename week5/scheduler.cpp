@@ -16,11 +16,51 @@ FCFSScheduler::FCFSScheduler() {
 }
 
 void FCFSScheduler::start() {
-    // TODO: scheduler and worker thread startup.
+    {
+
+        std::lock_guard<std::mutex> lock(schedulerMutex);
+
+        if (running) {
+            return;
+        }
+
+        running = true;
+    }
+
+    
+    for (int core = 0; core < CPU_CORES; ++core) {
+        workerThreads[core] = std::thread(
+            &FCFSScheduler::workerLoop,
+            this,
+            core
+        );
+    }
+
+    
+    schedulerThread = std::thread(&FCFSScheduler::schedulerLoop, this);
 }
 
 void FCFSScheduler::stop() {
-    // TODO: thread stopping logic.
+    {
+
+        std::lock_guard<std::mutex> lock(schedulerMutex);
+
+        if (!running) {
+            return;
+        }
+
+        running = false;
+    }
+
+    if (schedulerThread.joinable()) {
+        schedulerThread.join();
+    }
+
+    for (std::thread& worker : workerThreads) {
+        if (worker.joinable()) {
+            worker.join();
+        }
+    }
 }
 
 FCFSScheduler::~FCFSScheduler() {
@@ -61,42 +101,135 @@ void FCFSScheduler::createProcess(const std::string& name, int commands) {
 }
 
 void FCFSScheduler::schedulerLoop() {
-    // TODO:
-    // 1. Continuously check the readyQueue
-    // 2. Check which CPU cores are free
-    // 3. Take the process at readyQueue.front()
-    // 4. readyQueue.pop()
-    // 5. Change process state to Running
-    // 6. Assign its coreId
-    // 7. Store it in runningProcesses[core]
-    // 8. Mark coreBusy[core] = true
+
+    while (true) {
+        {
+            std::lock_guard<std::mutex> lock(schedulerMutex);
+
+            if (!running) {
+                return;
+            }
+
+            
+            while (!readyQueue.empty()) {
+                int freeCore = -1;
+
+                for (int core = 0; core < CPU_CORES; ++core) {
+
+                    if (!coreBusy[core]) {
+                        freeCore = core;
+                        break;
+                    }
+                }
+
+                if (freeCore == -1) {
+                    break;
+                }
+
+                Process* process = readyQueue.front();
+                readyQueue.pop();
+
+
+                process->state = ProcessState::Running;
+                process->coreId = freeCore;
+
+                runningProcesses[freeCore] = process;
+                coreBusy[freeCore] = true;
+            }
+        }
+
+        std::this_thread::sleep_for(
+            std::chrono::milliseconds(POLL_INTERVAL_MS)
+        );
+    }
 }
 
 void FCFSScheduler::workerLoop(int coreId) {
-    // TODO:
-    // 1. Check if this core has an assigned process
-    // 2. Call executeProcess(process, coreId)
-    // 3. When finished:
-    //      state = Finished
-    //      finishedAt = timestampNow()
-    //      coreId = -1
-    // 4. Set runningProcesses[coreId] = nullptr
-    // 5. Set coreBusy[coreId] = false
+
+    while (true) {
+        Process* process = nullptr;
+
+        {
+            std::lock_guard<std::mutex> lock(schedulerMutex);
+
+            if (!running) {
+                return;
+            }
+
+            if (coreBusy[coreId]) {
+                process = runningProcesses[coreId];
+            }
+        }
+
+        if (process == nullptr) {
+        
+            std::this_thread::sleep_for(
+                std::chrono::milliseconds(POLL_INTERVAL_MS)
+            );
+            continue;
+        }
+
+        
+        executeProcess(process, coreId);
+
+        
+        if (process->executedCommands.load() < process->totalCommands) {
+            return;
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(schedulerMutex);
+
+            process->state = ProcessState::Finished;
+            process->finishedAt = timestampNow();
+            process->coreId = -1;
+
+            runningProcesses[coreId] = nullptr;
+            coreBusy[coreId] = false;
+        }
+    }
 }
 
 void FCFSScheduler::executeProcess(
     Process* process,
     int coreId
 ) {
-    // TODO:
-    // 1. Open the process text file
-    // 2. Loop through all 100 commands
-    // 3. Write:
-    //      timestamp
-    //      CPU core
-    //      print message
-    // 4. Update executedCommands
-    // 5. Add simulation delay if needed
+    Process* process,
+        int coreId
+        ) {
+            std::ofstream logFile;
+
+            if (WRITE_LOG_FILES) {
+                logFile.open(
+                    "process_logs/" + process->name + ".txt",
+                    std::ios::app
+                );
+            }
+
+            while (process->executedCommands.load() < process->totalCommands) {
+                {
+                    std::lock_guard<std::mutex> lock(schedulerMutex);
+
+                    if (!running) {
+                        return;\
+                    }
+                }
+
+                
+                if (logFile.is_open()) {
+                    logFile
+                        << "(" << timestampNow() << ") "
+                        << "Core:" << coreId << " "
+                        << "\"Hello world from " << process->name << "!\"\n";
+                }
+
+                process->executedCommands.fetch_add(1);
+
+                
+                std::this_thread::sleep_for(
+                    std::chrono::milliseconds(EXEC_DELAY_MS)
+                );
+            }
 }
 
 void FCFSScheduler::printScreenList() {
