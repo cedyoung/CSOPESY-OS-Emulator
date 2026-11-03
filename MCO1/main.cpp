@@ -1,4 +1,5 @@
 #include "scheduler.h"
+#include "process.h"
 
 #include <iostream>
 #include <string>
@@ -65,7 +66,26 @@ int main() {
 
             running = false;
         }
+        else if (command == "test_process") {
+            if (!initialized) {
+                std::cout << "Please initialize the system first.\n";
+            } else {
+                
+                Process myProcess("p1", 1, 5);
+                std::cout << "Created process: " << myProcess.name << " with 5 instructions.\n";
 
+                
+                while (myProcess.state != ProcessState::FINISHED) {
+                    bool isFinished = myProcess.executeStep();
+                    std::cout << "Executing instruction... Current progress: " 
+                              << myProcess.currentInstruction << "/" << myProcess.totalInstructions << "\n";
+                    
+                    if (isFinished) {
+                        std::cout << "Process " << myProcess.name << " has FINISHED!\n";
+                    }
+                }
+            }
+        }
         else {
 
             if (!initialized) {
