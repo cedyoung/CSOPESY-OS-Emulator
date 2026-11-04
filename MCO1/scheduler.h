@@ -19,6 +19,8 @@ public:
 
     void createProcess(const std::string& name);
     std::vector<Process> getActiveProcesses();
+
+    Process* findProcess(const std::string& name);
     
 private:
     void schedulerLoop();
@@ -36,6 +38,8 @@ private:
 
     bool initialized = false;
     bool running = false;
+
+    
 };
 
 #endif

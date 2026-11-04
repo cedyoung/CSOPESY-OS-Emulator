@@ -25,6 +25,39 @@ void clearScreen() {
     std::cout << "\033[2J\033[1;1H";
 }
 
+
+void openProcessScreen(Process* proc) {
+    bool inScreen = true;
+    while (inScreen) {
+        std::cout << proc->name << "\\> ";
+        std::string command;
+        std::getline(std::cin, command);
+
+        if (command == "process-smi") {
+            std::cout << "\nProcess name: " << proc->name << "\n";
+            std::cout << "ID: " << proc->processId << "\n";
+            std::cout << "Logs:\n";
+            for (const auto& log : proc->logs) {
+                std::cout << "(" << log.timestamp << ") Core: " << log.coreId 
+                          << " \"" << log.message << "\"\n";
+            }
+            std::cout << "\nCurrent instruction line: " << proc->currentInstruction << "\n";
+            std::cout << "Lines of code: " << proc->totalInstructions << "\n";
+            
+            if (proc->state == ProcessState::FINISHED) {
+                std::cout << "Finished!\n";
+            }
+            std::cout << "\n";
+        }
+        else if (command == "exit") {
+            inScreen = false;
+        }
+        else {
+            std::cout << "Command not recognized in process screen. Type 'process-smi' or 'exit'.\n";
+        }
+    }
+}
+
 int main() {
     FCFSScheduler scheduler;
     Config config;
@@ -98,7 +131,7 @@ int main() {
                     << "Please initialize the system first.\n";
                 continue;
             }
-            
+
             std::stringstream ss(command);
             std::string action;
             ss >> action;
@@ -115,10 +148,36 @@ int main() {
                         std::cout << "Error: Process name cannot be empty. Usage: screen -s <name>\n";
                     } else {
                         scheduler.createProcess(procName);
+
+                        Process* proc = scheduler.findProcess(procName);
+                        if (proc != nullptr) {
+                            clearScreen();
+                            openProcessScreen(proc);
+                            clearScreen();
+                            displayHeader();
+                        }
+                    }
+                }
+                else if (flag == "-r") {
+                    std::string procName;
+                    ss >> procName;
+
+                    if (procName.empty()) {
+                        std::cout << "Error: Process name cannot be empty. Usage: screen -r <name>\n";
+                    } else {
+                        Process* proc = scheduler.findProcess(procName);
+                        
+                        if (proc == nullptr || proc->state == ProcessState::FINISHED) {
+                            std::cout << "Process " << procName << " not found.\n";
+                        } else {
+                            clearScreen();
+                            openProcessScreen(proc);
+                            clearScreen();
+                            displayHeader();
+                        }
                     }
                 }
                 else if (flag == "-ls") {
-
                     std::vector<Process> activeProcs = scheduler.getActiveProcesses();
                     
                     std::cout << "\n--- Active Processes ---\n";
@@ -131,7 +190,6 @@ int main() {
                                       << " | Instructions: " << p.currentInstruction << "/" << p.totalInstructions 
                                       << " | State: ";
                             
-
                             if (p.state == ProcessState::READY) std::cout << "READY";
                             else if (p.state == ProcessState::RUNNING) std::cout << "RUNNING";
                             else if (p.state == ProcessState::FINISHED) std::cout << "FINISHED";
@@ -142,11 +200,8 @@ int main() {
                     std::cout << "------------------------\n";
                 }
                 else {
-                    std::cout << "Invalid screen flag. Use 'screen -s <name>' or 'screen -ls'\n";
+                    std::cout << "Invalid screen flag. Use 'screen -s <name>', 'screen -r <name>', or 'screen -ls'\n";
                 }
-            }
-            else {
-                std::cout << "Command not implemented yet.\n";
             }
         }
     }

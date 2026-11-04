@@ -123,6 +123,17 @@ void FCFSScheduler::createProcess(const std::string& name) {
               << " and " << totalInstructions << " instructions.\n";
 }
 
+Process* FCFSScheduler::findProcess(const std::string& name) {
+    std::lock_guard<std::mutex> lock(schedulerMutex);
+    for (auto& proc : processes) {
+        if (proc.name == name) {
+            return &proc;
+        }
+    }
+    return nullptr;
+}
+
+
 std::vector<Process> FCFSScheduler::getActiveProcesses() {
     std::lock_guard<std::mutex> lock(schedulerMutex);
     return processes;

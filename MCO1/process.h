@@ -2,12 +2,18 @@
 #define PROCESS_H
 
 #include <string>
-
+#include <vector>
 
 enum class ProcessState {
     READY,
     RUNNING,
     FINISHED
+};
+
+struct LogEntry {
+    std::string timestamp;
+    int coreId;
+    std::string message;
 };
 
 struct Process {
@@ -18,9 +24,12 @@ struct Process {
     ProcessState state;
 
      
-    Process(std::string procName, int id, int totalInst);
+    std::vector<LogEntry> logs;
 
-    bool executeStep();
+    Process(std::string procName, int id, int totalInst);
+    bool executeStep(int coreId = 0);
+
+
 };
 
 #endif
