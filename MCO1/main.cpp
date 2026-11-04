@@ -98,7 +98,7 @@ int main() {
                     << "Please initialize the system first.\n";
                 continue;
             }
-            // Parse the command into tokens using stringstream
+            
             std::stringstream ss(command);
             std::string action;
             ss >> action;
@@ -109,7 +109,7 @@ int main() {
 
                 if (flag == "-s") {
                     std::string procName;
-                    ss >> procName; // Grab the process name provided by the user
+                    ss >> procName;
 
                     if (procName.empty()) {
                         std::cout << "Error: Process name cannot be empty. Usage: screen -s <name>\n";
@@ -118,7 +118,7 @@ int main() {
                     }
                 }
                 else if (flag == "-ls") {
-                    // Fetch and list active processes
+
                     std::vector<Process> activeProcs = scheduler.getActiveProcesses();
                     
                     std::cout << "\n--- Active Processes ---\n";
@@ -131,7 +131,7 @@ int main() {
                                       << " | Instructions: " << p.currentInstruction << "/" << p.totalInstructions 
                                       << " | State: ";
                             
-                            // Print readable state string
+
                             if (p.state == ProcessState::READY) std::cout << "READY";
                             else if (p.state == ProcessState::RUNNING) std::cout << "RUNNING";
                             else if (p.state == ProcessState::FINISHED) std::cout << "FINISHED";
