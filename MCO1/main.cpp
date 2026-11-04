@@ -47,7 +47,12 @@ int main() {
                 continue;
             }
 
-            config.numCpu = 4;
+            if (!config.loadConfigFile("config.txt")) {
+                std::cout << "Failed to initialize due to config file error.\n";
+                continue;
+            }
+
+            
 
             scheduler.initialize(config);
             scheduler.start();
