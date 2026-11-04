@@ -1,6 +1,8 @@
 #include "scheduler.h"
 
 #include <chrono>
+#include <random>
+#include <iostream>
 
 FCFSScheduler::FCFSScheduler() = default;
 
@@ -102,4 +104,26 @@ void FCFSScheduler::workerLoop(int coreId) {
             std::chrono::milliseconds(5)
         );
     }
+}
+
+void FCFSScheduler::createProcess(const std::string& name) {
+    std::lock_guard<std::mutex> lock(schedulerMutex);
+
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(config.minIns, config.maxIns);
+    int totalInstructions = dis(gen);
+
+
+    Process newProc(name, nextProcessId++, totalInstructions);
+    processes.push_back(newProc);
+
+    std::cout << "Process '" << name << "' created with ID " << newProc.processId 
+              << " and " << totalInstructions << " instructions.\n";
+}
+
+std::vector<Process> FCFSScheduler::getActiveProcesses() {
+    std::lock_guard<std::mutex> lock(schedulerMutex);
+    return processes;
 }

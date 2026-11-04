@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <string>
+#include <sstream>
 
 void displayHeader() {
     std::cout << R"(
@@ -62,7 +63,6 @@ int main() {
             std::cout
                 << "System initialized successfully.\n";
         }
-
         else if (command == "exit") {
 
             if (initialized) {
@@ -96,10 +96,57 @@ int main() {
             if (!initialized) {
                 std::cout
                     << "Please initialize the system first.\n";
+                continue;
+            }
+            // Parse the command into tokens using stringstream
+            std::stringstream ss(command);
+            std::string action;
+            ss >> action;
+
+            if (action == "screen") {
+                std::string flag;
+                ss >> flag;
+
+                if (flag == "-s") {
+                    std::string procName;
+                    ss >> procName; // Grab the process name provided by the user
+
+                    if (procName.empty()) {
+                        std::cout << "Error: Process name cannot be empty. Usage: screen -s <name>\n";
+                    } else {
+                        scheduler.createProcess(procName);
+                    }
+                }
+                else if (flag == "-ls") {
+                    // Fetch and list active processes
+                    std::vector<Process> activeProcs = scheduler.getActiveProcesses();
+                    
+                    std::cout << "\n--- Active Processes ---\n";
+                    if (activeProcs.empty()) {
+                        std::cout << "No processes currently running.\n";
+                    } else {
+                        for (const auto& p : activeProcs) {
+                            std::cout << "Name: " << p.name 
+                                      << " | ID: " << p.processId 
+                                      << " | Instructions: " << p.currentInstruction << "/" << p.totalInstructions 
+                                      << " | State: ";
+                            
+                            // Print readable state string
+                            if (p.state == ProcessState::READY) std::cout << "READY";
+                            else if (p.state == ProcessState::RUNNING) std::cout << "RUNNING";
+                            else if (p.state == ProcessState::FINISHED) std::cout << "FINISHED";
+                            
+                            std::cout << "\n";
+                        }
+                    }
+                    std::cout << "------------------------\n";
+                }
+                else {
+                    std::cout << "Invalid screen flag. Use 'screen -s <name>' or 'screen -ls'\n";
+                }
             }
             else {
-                std::cout
-                    << "Command not implemented yet.\n";
+                std::cout << "Command not implemented yet.\n";
             }
         }
     }

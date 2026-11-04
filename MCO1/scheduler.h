@@ -2,6 +2,7 @@
 #define FCFS_SCHEDULER_H
 
 #include "config.h"
+#include "process.h"
 
 #include <mutex>
 #include <thread>
@@ -16,11 +17,17 @@ public:
     void start();
     void stop();
 
+    void createProcess(const std::string& name);
+    std::vector<Process> getActiveProcesses();
+    
 private:
     void schedulerLoop();
     void workerLoop(int coreId);
 
     Config config;
+    int nextProcessId = 1;
+
+    std::vector<Process> processes;
 
     std::thread schedulerThread;
     std::vector<std::thread> workerThreads;
