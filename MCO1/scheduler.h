@@ -21,7 +21,8 @@ public:
     void stop();
 
     void createProcess(const std::string& name);
-    std::vector<Process> getProcesses();
+    
+    std::string buildScreenList();
 
     Process* findProcess(const std::string& name);
 
