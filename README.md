@@ -39,3 +39,10 @@ Open the `MCO3` folder and compile/run the source file containing the project's 
 ## Notes
 
 This repository contains multiple CSOPESY outputs. Each machine project is kept in its own folder so the source code and dependencies remain organized and separate.
+
+
+## MCO1 - Process Multiplexer and CLI
+
+### Instructions
+
+Open the 'MCO1' folder and run tasks on main.cpp. Run the resulting csopesy.exe file.
