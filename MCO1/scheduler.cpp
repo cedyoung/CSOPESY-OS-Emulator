@@ -144,9 +144,11 @@ void Scheduler::workerLoop(int coreId) {
 
         if (config.scheduler == "fcfs") {
 
-            bool finished =
-                processes[processIndex]
-                    .executeStep(coreId);
+            bool finished;
+            {
+                std::lock_guard<std::mutex> stepLock(schedulerMutex);
+                finished = processes[processIndex].executeStep(coreId);
+            }
 
             if (finished) {
                 std::lock_guard<std::mutex> lock(
@@ -169,9 +171,10 @@ void Scheduler::workerLoop(int coreId) {
                  cycle < config.quantumCycles;
                  ++cycle) {
 
-                finished =
-                    processes[processIndex]
-                        .executeStep(coreId);
+                {
+                    std::lock_guard<std::mutex> stepLock(schedulerMutex);
+                    finished = processes[processIndex].executeStep(coreId);
+                }
 
                 if (finished) {
                     break;
@@ -284,7 +287,7 @@ void Scheduler::createProcess(const std::string& name) {
     int totalInstructions = dis(gen);
 
 
-    Process newProc(name, nextProcessId++, totalInstructions);
+    Process newProc(name, nextProcessId++, generateProgram(name, totalInstructions, gen));
     processes.push_back(newProc);
 
     int processIndex =
@@ -367,7 +370,7 @@ std::string Scheduler::buildScreenList() {
 
     for (const Process& process : processes) {
 
-        if (process.state == ProcessState::RUNNING) {
+        if (process.state == ProcessState::RUNNING || process.state == ProcessState::WAITING) {
 
             hasRunning = true;
 
@@ -489,7 +492,7 @@ void Scheduler::generateBatchProcessIfNeeded() {
     Process newProc(
         name,
         nextProcessId++,
-        totalInstructions
+        generateProgram(name, totalInstructions, gen)
     );
 
     processes.push_back(newProc);
