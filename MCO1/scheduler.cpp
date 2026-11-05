@@ -5,6 +5,7 @@
 #include <iostream>
 #include <iomanip>
 #include <sstream>
+#include <fstream>
 
 Scheduler::Scheduler() = default;
 
@@ -504,4 +505,19 @@ void Scheduler::generateBatchProcessIfNeeded() {
         ) - 1;
 
     readyQueue.push(processIndex);
+}
+
+
+bool Scheduler::saveReportToFile(const std::string& filename) {
+    
+    std::string reportContent = buildScreenList();
+    
+    std::ofstream file(filename, std::ios::app);
+    if (!file.is_open()) {
+        return false;
+    }
+
+    file << reportContent << "\n";
+    file.close();
+    return true;
 }

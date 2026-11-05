@@ -26,6 +26,8 @@ public:
 
     Process* findProcess(const std::string& name);
 
+    bool saveReportToFile(const std::string& filename = "csopesy-log.txt");
+
     void startBatchGeneration();
     void stopBatchGeneration();
     

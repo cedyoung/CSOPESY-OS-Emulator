@@ -127,6 +127,14 @@ int main() {
                     << "Scheduler process generation stopped.\n";
             }
 
+            else if (action == "report-util") {
+                if (scheduler.saveReportToFile("csopesy-log.txt")) {
+                    std::cout << "Report generated and saved to csopesy-log.txt successfully!\n";
+                } else {
+                    std::cout << "Error: Could not write to csopesy-log.txt\n";
+                }
+            }
+
             else if (action == "screen") {
                 std::string flag;
                 ss >> flag;
