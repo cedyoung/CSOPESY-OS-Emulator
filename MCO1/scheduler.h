@@ -7,11 +7,12 @@
 #include <mutex>
 #include <thread>
 #include <vector>
+#include <queue>
 
-class FCFSScheduler {
+class Scheduler {
 public:
-    FCFSScheduler();
-    ~FCFSScheduler();
+    Scheduler();
+    ~Scheduler();
 
     void initialize(const Config& config);
     void start();
@@ -26,10 +27,24 @@ private:
     void schedulerLoop();
     void workerLoop(int coreId);
 
+    void dispatchFCFS();
+    void dispatchRoundRobin();
+
+    int findFreeCore() const;
+
+    void finishProcess(int processIndex, int coreId);
+
+    void requeueProcess(int processIndex, int coreId);
+
     Config config;
     int nextProcessId = 1;
 
     std::vector<Process> processes;
+
+    std::queue<int> readyQueue;
+
+    std::vector<int> runningProcess;
+    std::vector<bool> coreBusy;
 
     std::thread schedulerThread;
     std::vector<std::thread> workerThreads;

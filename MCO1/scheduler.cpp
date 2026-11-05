@@ -4,24 +4,37 @@
 #include <random>
 #include <iostream>
 
-FCFSScheduler::FCFSScheduler() = default;
+Scheduler::Scheduler() = default;
 
-FCFSScheduler::~FCFSScheduler() {
+Scheduler::~Scheduler() {
     stop();
 }
 
-void FCFSScheduler::initialize(const Config& newConfig) {
-    std::lock_guard<std::mutex> lock(schedulerMutex);
+void Scheduler::initialize(const Config& newConfig) {
+    std::lock_guard<std::mutex> lock(
+        schedulerMutex
+    );
 
     if (running) {
         return;
     }
 
     config = newConfig;
+
+    runningProcess.resize(
+        config.numCpu,
+        -1
+    );
+
+    coreBusy.resize(
+        config.numCpu,
+        false
+    );
+
     initialized = true;
 }
 
-void FCFSScheduler::start() {
+void Scheduler::start() {
     {
         std::lock_guard<std::mutex> lock(schedulerMutex);
 
@@ -36,19 +49,19 @@ void FCFSScheduler::start() {
 
     for (int core = 0; core < config.numCpu; ++core) {
         workerThreads.emplace_back(
-            &FCFSScheduler::workerLoop,
+            &Scheduler::workerLoop,
             this,
             core
         );
     }
 
     schedulerThread = std::thread(
-        &FCFSScheduler::schedulerLoop,
+        &Scheduler::schedulerLoop,
         this
     );
 }
 
-void FCFSScheduler::stop() {
+void Scheduler::stop() {
     {
         std::lock_guard<std::mutex> lock(schedulerMutex);
 
@@ -72,13 +85,20 @@ void FCFSScheduler::stop() {
     workerThreads.clear();
 }
 
-void FCFSScheduler::schedulerLoop() {
+void Scheduler::schedulerLoop() {
     while (true) {
         {
             std::lock_guard<std::mutex> lock(schedulerMutex);
 
             if (!running) {
                 return;
+            }
+
+            if (config.scheduler == "fcfs") {
+                dispatchFCFS();
+            }
+            else if (config.scheduler == "rr") {
+                dispatchRoundRobin();
             }
         }
 
@@ -88,25 +108,174 @@ void FCFSScheduler::schedulerLoop() {
     }
 }
 
-void FCFSScheduler::workerLoop(int coreId) {
-    (void)coreId;
-
+void Scheduler::workerLoop(int coreId) {
     while (true) {
+
+        int processIndex = -1;
+
         {
-            std::lock_guard<std::mutex> lock(schedulerMutex);
+            std::lock_guard<std::mutex> lock(
+                schedulerMutex
+            );
 
             if (!running) {
                 return;
             }
+
+            if (coreBusy[coreId]) {
+                processIndex =
+                    runningProcess[coreId];
+            }
         }
 
+        if (processIndex == -1) {
+            std::this_thread::sleep_for(
+                std::chrono::milliseconds(5)
+            );
+
+            continue;
+        }
+
+
+        if (config.scheduler == "fcfs") {
+
+            bool finished =
+                processes[processIndex]
+                    .executeStep(coreId);
+
+            if (finished) {
+                std::lock_guard<std::mutex> lock(
+                    schedulerMutex
+                );
+
+                finishProcess(
+                    processIndex,
+                    coreId
+                );
+            }
+        }
+
+
+        else if (config.scheduler == "rr") {
+
+            bool finished = false;
+
+            for (int cycle = 0;
+                 cycle < config.quantumCycles;
+                 ++cycle) {
+
+                finished =
+                    processes[processIndex]
+                        .executeStep(coreId);
+
+                if (finished) {
+                    break;
+                }
+            }
+
+            std::lock_guard<std::mutex> lock(
+                schedulerMutex
+            );
+
+            if (finished) {
+                finishProcess(processIndex, coreId);
+            }
+            else {
+                requeueProcess(processIndex, coreId);
+            }
+        }
         std::this_thread::sleep_for(
             std::chrono::milliseconds(5)
         );
     }
 }
 
-void FCFSScheduler::createProcess(const std::string& name) {
+void Scheduler::dispatchFCFS() {
+    while (!readyQueue.empty()) {
+
+        int freeCore = findFreeCore();
+
+        if (freeCore == -1) {
+            return;
+        }
+
+        int processIndex =
+            readyQueue.front();
+
+        readyQueue.pop();
+
+        processes[processIndex].state =
+            ProcessState::RUNNING;
+
+        runningProcess[freeCore] =
+            processIndex;
+
+        coreBusy[freeCore] = true;
+    }
+}
+
+void Scheduler::dispatchRoundRobin() {
+    while (!readyQueue.empty()) {
+
+        int freeCore = findFreeCore();
+
+        if (freeCore == -1) {
+            return;
+        }
+
+        int processIndex =
+            readyQueue.front();
+
+        readyQueue.pop();
+
+        processes[processIndex].state =
+            ProcessState::RUNNING;
+
+        runningProcess[freeCore] =
+            processIndex;
+
+        coreBusy[freeCore] = true;
+    }
+}
+
+int Scheduler::findFreeCore() const {
+    for (int core = 0;
+         core < config.numCpu;
+         ++core) {
+
+        if (!coreBusy[core]) {
+            return core;
+        }
+    }
+
+    return -1;
+}
+
+void Scheduler::finishProcess(
+    int processIndex,
+    int coreId
+) {
+    processes[processIndex].state =
+        ProcessState::FINISHED;
+
+    runningProcess[coreId] = -1;
+    coreBusy[coreId] = false;
+}
+
+void Scheduler::requeueProcess(
+    int processIndex,
+    int coreId
+) {
+    processes[processIndex].state =
+        ProcessState::READY;
+
+    runningProcess[coreId] = -1;
+    coreBusy[coreId] = false;
+
+    readyQueue.push(processIndex);
+}
+
+void Scheduler::createProcess(const std::string& name) {
     std::lock_guard<std::mutex> lock(schedulerMutex);
 
 
@@ -119,11 +288,23 @@ void FCFSScheduler::createProcess(const std::string& name) {
     Process newProc(name, nextProcessId++, totalInstructions);
     processes.push_back(newProc);
 
-    std::cout << "Process '" << name << "' created with ID " << newProc.processId 
-              << " and " << totalInstructions << " instructions.\n";
+    int processIndex =
+    static_cast<int>(
+        processes.size()
+    ) - 1;
+
+    readyQueue.push(processIndex);
+
+    std::cout
+        << "Process '" << name
+        << "' created with ID "
+        << newProc.processId
+        << " and "
+        << totalInstructions
+        << " instructions.\n";
 }
 
-Process* FCFSScheduler::findProcess(const std::string& name) {
+Process* Scheduler::findProcess(const std::string& name) {
     std::lock_guard<std::mutex> lock(schedulerMutex);
     for (auto& proc : processes) {
         if (proc.name == name) {
@@ -134,7 +315,7 @@ Process* FCFSScheduler::findProcess(const std::string& name) {
 }
 
 
-std::vector<Process> FCFSScheduler::getActiveProcesses() {
+std::vector<Process> Scheduler::getActiveProcesses() {
     std::lock_guard<std::mutex> lock(schedulerMutex);
     return processes;
 }

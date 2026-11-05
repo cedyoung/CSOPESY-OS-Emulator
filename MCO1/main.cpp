@@ -59,7 +59,7 @@ void openProcessScreen(Process* proc) {
 }
 
 int main() {
-    FCFSScheduler scheduler;
+    Scheduler scheduler;
     Config config;
 
     bool initialized = false;
