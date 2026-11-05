@@ -3,6 +3,8 @@
 #include <chrono>
 #include <random>
 #include <iostream>
+#include <iomanip>
+#include <sstream>
 
 Scheduler::Scheduler() = default;
 
@@ -93,6 +95,9 @@ void Scheduler::schedulerLoop() {
             if (!running) {
                 return;
             }
+            
+            cpuTicks++;
+            generateBatchProcessIfNeeded();
 
             if (config.scheduler == "fcfs") {
                 dispatchFCFS();
@@ -251,10 +256,7 @@ int Scheduler::findFreeCore() const {
     return -1;
 }
 
-void Scheduler::finishProcess(
-    int processIndex,
-    int coreId
-) {
+void Scheduler::finishProcess(int processIndex, int coreId) {
     processes[processIndex].state =
         ProcessState::FINISHED;
 
@@ -262,10 +264,7 @@ void Scheduler::finishProcess(
     coreBusy[coreId] = false;
 }
 
-void Scheduler::requeueProcess(
-    int processIndex,
-    int coreId
-) {
+void Scheduler::requeueProcess(int processIndex, int coreId) {
     processes[processIndex].state =
         ProcessState::READY;
 
@@ -314,8 +313,86 @@ Process* Scheduler::findProcess(const std::string& name) {
     return nullptr;
 }
 
-
-std::vector<Process> Scheduler::getActiveProcesses() {
+std::vector<Process> Scheduler::getProcesses() {
     std::lock_guard<std::mutex> lock(schedulerMutex);
     return processes;
+}
+
+void Scheduler::startBatchGeneration() {
+    std::lock_guard<std::mutex> lock(
+        schedulerMutex
+    );
+
+    batchGenerationEnabled = true;
+}
+
+void Scheduler::stopBatchGeneration() {
+    std::lock_guard<std::mutex> lock(
+        schedulerMutex
+    );
+
+    batchGenerationEnabled = false;
+}
+
+std::string Scheduler::nextGeneratedProcessName() {
+    std::ostringstream output;
+
+    output
+        << "screen_"
+        << std::setw(2)
+        << std::setfill('0')
+        << nextGeneratedProcessNumber++;
+
+    return output.str();
+}
+
+void Scheduler::generateBatchProcessIfNeeded() {
+
+    if (!batchGenerationEnabled) {
+        return;
+    }
+
+    if (config.batchProcessFreq <= 0) {
+        return;
+    }
+
+    if (
+        cpuTicks %
+        static_cast<std::uint64_t>(
+            config.batchProcessFreq
+        )
+        != 0
+    ) {
+        return;
+    }
+
+    std::string name =
+        nextGeneratedProcessName();
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    std::uniform_int_distribution<> dis(
+        config.minIns,
+        config.maxIns
+    );
+
+    int totalInstructions = dis(gen);
+
+
+    Process newProc(
+        name,
+        nextProcessId++,
+        totalInstructions
+    );
+
+    processes.push_back(newProc);
+
+
+    int processIndex =
+        static_cast<int>(
+            processes.size()
+        ) - 1;
+
+    readyQueue.push(processIndex);
 }

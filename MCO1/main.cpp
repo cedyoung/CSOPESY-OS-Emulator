@@ -104,26 +104,6 @@ int main() {
 
             running = false;
         }
-        else if (command == "test_process") {
-            if (!initialized) {
-                std::cout << "Please initialize the system first.\n";
-            } else {
-                
-                Process myProcess("p1", 1, 5);
-                std::cout << "Created process: " << myProcess.name << " with 5 instructions.\n";
-
-                
-                while (myProcess.state != ProcessState::FINISHED) {
-                    bool isFinished = myProcess.executeStep();
-                    std::cout << "Executing instruction... Current progress: " 
-                              << myProcess.currentInstruction << "/" << myProcess.totalInstructions << "\n";
-                    
-                    if (isFinished) {
-                        std::cout << "Process " << myProcess.name << " has FINISHED!\n";
-                    }
-                }
-            }
-        }
         else {
 
             if (!initialized) {
@@ -136,7 +116,21 @@ int main() {
             std::string action;
             ss >> action;
 
-            if (action == "screen") {
+            if (action == "scheduler-start") {
+                scheduler.startBatchGeneration();
+
+                std::cout
+                    << "Scheduler process generation started.\n";
+            }
+
+            else if (action == "scheduler-stop") {
+                scheduler.stopBatchGeneration();
+
+                std::cout
+                    << "Scheduler process generation stopped.\n";
+            }
+
+            else if (action == "screen") {
                 std::string flag;
                 ss >> flag;
 
@@ -178,7 +172,7 @@ int main() {
                     }
                 }
                 else if (flag == "-ls") {
-                    std::vector<Process> activeProcs = scheduler.getActiveProcesses();
+                    std::vector<Process> activeProcs = scheduler.getProcesses();
                     
                     std::cout << "\n--- Active Processes ---\n";
                     if (activeProcs.empty()) {
