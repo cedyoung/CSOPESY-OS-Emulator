@@ -25,7 +25,6 @@ void clearScreen() {
     std::cout << "\033[2J\033[1;1H";
 }
 
-
 void openProcessScreen(Process* proc) {
     bool inScreen = true;
     while (inScreen) {
@@ -85,8 +84,6 @@ int main() {
                 std::cout << "Failed to initialize due to config file error.\n";
                 continue;
             }
-
-            
 
             scheduler.initialize(config);
             scheduler.start();
@@ -172,26 +169,8 @@ int main() {
                     }
                 }
                 else if (flag == "-ls") {
-                    std::vector<Process> activeProcs = scheduler.getProcesses();
-                    
-                    std::cout << "\n--- Active Processes ---\n";
-                    if (activeProcs.empty()) {
-                        std::cout << "No processes currently running.\n";
-                    } else {
-                        for (const auto& p : activeProcs) {
-                            std::cout << "Name: " << p.name 
-                                      << " | ID: " << p.processId 
-                                      << " | Instructions: " << p.currentInstruction << "/" << p.totalInstructions 
-                                      << " | State: ";
-                            
-                            if (p.state == ProcessState::READY) std::cout << "READY";
-                            else if (p.state == ProcessState::RUNNING) std::cout << "RUNNING";
-                            else if (p.state == ProcessState::FINISHED) std::cout << "FINISHED";
-                            
-                            std::cout << "\n";
-                        }
-                    }
-                    std::cout << "------------------------\n";
+                    std::cout
+                        << scheduler.buildScreenList();       
                 }
                 else {
                     std::cout << "Invalid screen flag. Use 'screen -s <name>', 'screen -r <name>', or 'screen -ls'\n";
