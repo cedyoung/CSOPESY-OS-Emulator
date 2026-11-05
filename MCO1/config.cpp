@@ -34,12 +34,26 @@ bool Config::loadConfigFile(const std::string& filename) {
                 minIns = std::stoi(value);
             } else if (key == "max-ins") {
                 maxIns = std::stoi(value);
-            } else if (key == "delay-per-exec") {
+            } else if (key == "delays-per-exec") {
                 delayPerExec = std::stoi(value);
             }
         }
     }
 
     file.close();
+    if (numCpu < 1 || numCpu > 128) {
+        std::cout << "Error: num-cpu must be between 1 and 128.\n";
+        return false;
+    }
+
+    if (scheduler != "fcfs" && scheduler != "rr") {
+        std::cout << "Error: scheduler must be fcfs or rr.\n";
+        return false;
+    }
+    if (quantumCycles < 1 || batchProcessFreq < 1 || minIns < 1 || maxIns < minIns || delayPerExec < 0) {
+        std::cout << "Error: Invalid configuration values.\n";
+        return false;
+    }
+
     return true;
 }
