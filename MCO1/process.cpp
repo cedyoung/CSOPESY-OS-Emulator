@@ -3,12 +3,13 @@
 #include <iomanip>
 #include <sstream>
 
-Process::Process(std::string procName, int id, int totalInst) 
+Process::Process(std::string procName, int id, ProgramPtr program) 
     : name(procName), 
       processId(id), 
-      totalInstructions(totalInst), 
+      totalInstructions(static_cast<int>(countInstructions(*program))), 
       currentInstruction(0), 
-      state(ProcessState::READY) {
+      state(ProcessState::READY),
+      context(procName, program) {
 }
 
 
@@ -27,16 +28,35 @@ bool Process::executeStep(int coreId) {
         return true;
     }
 
+    if (context.isSleep()) {
+        context.tickSleep();
+        if (context.isDone()) {
+            state = ProcessState::FINISHED;
+            return true;
+        }
+
+        state = context.isSleep() ? ProcessState::WAITING : ProcessState::RUNNING;
+        return false;
+    }
+    
+
     state = ProcessState::RUNNING;
-    currentInstruction++;
+    StepResult r = context.step();
+    currentInstruction = static_cast<int>(context.instructionsExecuted());
 
-    LogEntry log;
-    log.timestamp = getCurrentTimestamp();
-    log.coreId = coreId;
-    log.message = "Hello World from " + name + "!";
-    logs.push_back(log);
+    if (r.hasOutput){
+        LogEntry log;
+        log.timestamp = getCurrentTimestamp();
+        log.coreId = coreId;
+        log.message = r.output;
+        logs.push_back(log);
+    }
 
-    if (currentInstruction >= totalInstructions) {
+    if (r.sleepStarted){
+        state = ProcessState::WAITING;
+    }
+    
+    if (r.done) {
         state = ProcessState::FINISHED;
         return true;
     }
