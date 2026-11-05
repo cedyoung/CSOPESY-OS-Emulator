@@ -3,16 +3,6 @@
 #include <iomanip>
 #include <sstream>
 
-Process::Process(std::string procName, int id, ProgramPtr program) 
-    : name(procName), 
-      processId(id), 
-      totalInstructions(static_cast<int>(countInstructions(*program))), 
-      currentInstruction(0), 
-      state(ProcessState::READY),
-      context(procName, program) {
-}
-
-
 std::string getCurrentTimestamp() {
     auto now = std::chrono::system_clock::now();
     auto in_time_t = std::chrono::system_clock::to_time_t(now);
@@ -21,6 +11,19 @@ std::string getCurrentTimestamp() {
     ss << std::put_time(std::localtime(&in_time_t), "%m/%d/%Y %I:%M:%S%p");
     return ss.str();
 }
+
+
+Process::Process(std::string procName, int id, ProgramPtr program) 
+    : name(procName), 
+      processId(id), 
+      totalInstructions(static_cast<int>(countInstructions(*program))), 
+      currentInstruction(0), 
+      state(ProcessState::READY),
+      createdAt(getCurrentTimestamp()),
+      context(procName, program) {
+}
+
+
 
 
 bool Process::executeStep(int coreId) {

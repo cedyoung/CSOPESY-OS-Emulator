@@ -318,112 +318,78 @@ Process* Scheduler::findProcess(const std::string& name) {
 }
 
 std::string Scheduler::buildScreenList() {
-    std::lock_guard<std::mutex> lock(
-        schedulerMutex
-    );
+    std::lock_guard<std::mutex> lock(schedulerMutex);
 
     std::ostringstream output;
 
     int usedCores = 0;
-
     for (bool busy : coreBusy) {
         if (busy) {
             usedCores++;
         }
     }
 
-    int availableCores =
-        config.numCpu - usedCores;
-
+    int availableCores = config.numCpu - usedCores;
     double cpuUtilization = 0.0;
-
     if (config.numCpu > 0) {
-        cpuUtilization =
-            (static_cast<double>(usedCores)
-             / config.numCpu)
-            * 100.0;
+        cpuUtilization = (static_cast<double>(usedCores) / config.numCpu) * 100.0;
     }
 
-
-    output << "\n----------------------------------\n";
-
-    output
-        << "CPU utilization: "
-        << std::fixed
-        << std::setprecision(2)
-        << cpuUtilization
-        << "%\n";
-
-    output
-        << "Cores used: "
-        << usedCores
-        << "\n";
-
-    output
-        << "Cores available: "
-        << availableCores
-        << "\n";
+    output << "CPU utilization: " << std::fixed << std::setprecision(0) << cpuUtilization << "%\n";
+    output << "Cores used: " << usedCores << "\n";
+    output << "Cores available: " << availableCores << "\n";
+    output << "\n--------------------------------------------------------------------\n";
 
 
-    output << "\nRunning processes:\n";
-
+    output << "Running processes:\n";
     bool hasRunning = false;
-
     for (const Process& process : processes) {
-
-        if (process.state == ProcessState::RUNNING || process.state == ProcessState::WAITING) {
-
+        if (process.state == ProcessState::RUNNING || process.state == ProcessState::WAITING || process.state == ProcessState::READY) {
             hasRunning = true;
 
-            output
-                << std::left
-                << std::setw(15)
-                << process.name
-                << " ID: "
-                << process.processId
-                << "  "
-                << process.currentInstruction
-                << " / "
-                << process.totalInstructions
-                << "\n";
+
+            int assignedCore = -1;
+            for (int c = 0; c < config.numCpu; ++c) {
+                if (runningProcess[c] != -1 && processes[runningProcess[c]].processId == process.processId) {
+                    assignedCore = c;
+                    break;
+                }
+            }
+
+            output << std::left << std::setw(12) << process.name
+                   << " (" << process.createdAt << ")  ";
+            
+            if (assignedCore != -1) {
+                output << "Core: " << assignedCore << "    ";
+            } else {
+                output << "Core: N/A  ";
+            }
+
+            output << process.currentInstruction << " / " << process.totalInstructions << "\n";
         }
     }
-
     if (!hasRunning) {
         output << "None\n";
     }
 
 
     output << "\nFinished processes:\n";
-
     bool hasFinished = false;
-
     for (const Process& process : processes) {
-
         if (process.state == ProcessState::FINISHED) {
-
             hasFinished = true;
 
-            output
-                << std::left
-                << std::setw(15)
-                << process.name
-                << " ID: "
-                << process.processId
-                << "  Finished  "
-                << process.currentInstruction
-                << " / "
-                << process.totalInstructions
-                << "\n";
+            output << std::left << std::setw(12) << process.name
+                   << " (" << process.createdAt << ")  "
+                   << std::left << std::setw(10) << "Finished"
+                   << process.currentInstruction << " / " << process.totalInstructions << "\n";
         }
     }
-
     if (!hasFinished) {
         output << "None\n";
     }
 
-
-    output << "----------------------------------\n";
+    output << "--------------------------------------------------------------------\n";
 
     return output.str();
 }

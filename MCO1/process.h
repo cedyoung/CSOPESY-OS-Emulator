@@ -26,7 +26,7 @@ struct Process {
     int currentInstruction;
     ProcessState state;
 
-     
+    std::string createdAt;
     std::vector<LogEntry> logs;
     Execution context;
 
