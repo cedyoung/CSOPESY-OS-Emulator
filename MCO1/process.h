@@ -4,9 +4,12 @@
 #include <string>
 #include <vector>
 
+#include "instruction.h"
+
 enum class ProcessState {
     READY,
     RUNNING,
+    WAITING,
     FINISHED
 };
 
@@ -25,8 +28,9 @@ struct Process {
 
      
     std::vector<LogEntry> logs;
+    Execution context;
 
-    Process(std::string procName, int id, int totalInst);
+    Process(std::string procName, int id, ProgramPtr program);
     bool executeStep(int coreId = 0);
 
 
