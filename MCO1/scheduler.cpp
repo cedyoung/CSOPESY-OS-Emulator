@@ -313,9 +313,115 @@ Process* Scheduler::findProcess(const std::string& name) {
     return nullptr;
 }
 
-std::vector<Process> Scheduler::getProcesses() {
-    std::lock_guard<std::mutex> lock(schedulerMutex);
-    return processes;
+std::string Scheduler::buildScreenList() {
+    std::lock_guard<std::mutex> lock(
+        schedulerMutex
+    );
+
+    std::ostringstream output;
+
+    int usedCores = 0;
+
+    for (bool busy : coreBusy) {
+        if (busy) {
+            usedCores++;
+        }
+    }
+
+    int availableCores =
+        config.numCpu - usedCores;
+
+    double cpuUtilization = 0.0;
+
+    if (config.numCpu > 0) {
+        cpuUtilization =
+            (static_cast<double>(usedCores)
+             / config.numCpu)
+            * 100.0;
+    }
+
+
+    output << "\n----------------------------------\n";
+
+    output
+        << "CPU utilization: "
+        << std::fixed
+        << std::setprecision(2)
+        << cpuUtilization
+        << "%\n";
+
+    output
+        << "Cores used: "
+        << usedCores
+        << "\n";
+
+    output
+        << "Cores available: "
+        << availableCores
+        << "\n";
+
+
+    output << "\nRunning processes:\n";
+
+    bool hasRunning = false;
+
+    for (const Process& process : processes) {
+
+        if (process.state == ProcessState::RUNNING) {
+
+            hasRunning = true;
+
+            output
+                << std::left
+                << std::setw(15)
+                << process.name
+                << " ID: "
+                << process.processId
+                << "  "
+                << process.currentInstruction
+                << " / "
+                << process.totalInstructions
+                << "\n";
+        }
+    }
+
+    if (!hasRunning) {
+        output << "None\n";
+    }
+
+
+    output << "\nFinished processes:\n";
+
+    bool hasFinished = false;
+
+    for (const Process& process : processes) {
+
+        if (process.state == ProcessState::FINISHED) {
+
+            hasFinished = true;
+
+            output
+                << std::left
+                << std::setw(15)
+                << process.name
+                << " ID: "
+                << process.processId
+                << "  Finished  "
+                << process.currentInstruction
+                << " / "
+                << process.totalInstructions
+                << "\n";
+        }
+    }
+
+    if (!hasFinished) {
+        output << "None\n";
+    }
+
+
+    output << "----------------------------------\n";
+
+    return output.str();
 }
 
 void Scheduler::startBatchGeneration() {
