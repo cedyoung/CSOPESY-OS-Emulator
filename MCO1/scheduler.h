@@ -8,6 +8,8 @@
 #include <thread>
 #include <vector>
 #include <queue>
+#include <cstdint>
+#include <string>
 
 class Scheduler {
 public:
@@ -19,9 +21,12 @@ public:
     void stop();
 
     void createProcess(const std::string& name);
-    std::vector<Process> getActiveProcesses();
+    std::vector<Process> getProcesses();
 
     Process* findProcess(const std::string& name);
+
+    void startBatchGeneration();
+    void stopBatchGeneration();
     
 private:
     void schedulerLoop();
@@ -29,20 +34,19 @@ private:
 
     void dispatchFCFS();
     void dispatchRoundRobin();
-
     int findFreeCore() const;
 
     void finishProcess(int processIndex, int coreId);
-
     void requeueProcess(int processIndex, int coreId);
+
+    void generateBatchProcessIfNeeded();
+    std::string nextGeneratedProcessName();
 
     Config config;
     int nextProcessId = 1;
 
     std::vector<Process> processes;
-
     std::queue<int> readyQueue;
-
     std::vector<int> runningProcess;
     std::vector<bool> coreBusy;
 
@@ -51,10 +55,13 @@ private:
 
     std::mutex schedulerMutex;
 
+    std::uint64_t cpuTicks = 0;
+
     bool initialized = false;
     bool running = false;
 
-    
+    bool batchGenerationEnabled = false;
+    int nextGeneratedProcessNumber = 1;
 };
 
 #endif
