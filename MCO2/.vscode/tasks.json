@@ -1,0 +1,26 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "shell",
+            "label": "build csopesy",
+            "command": "g++",
+            "args": [
+                "-std=c++17",
+                "main.cpp",
+                "scheduler.cpp",
+                "process.cpp",
+                "instruction.cpp",
+                "config.cpp",
+                "-o",
+                "csopesy.exe",
+                "-pthread"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"]
+        }
+    ]
+}
