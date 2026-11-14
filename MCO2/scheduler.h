@@ -10,6 +10,7 @@
 #include <queue>
 #include <cstdint>
 #include <string>
+#include <condition_variable>
 
 class Scheduler {
 public:
@@ -60,6 +61,7 @@ private:
     std::vector<std::thread> workerThreads;
 
     std::mutex schedulerMutex;
+    std::condition_variable tickCondition;
 
     std::uint64_t cpuTicks = 0;
 

@@ -24,16 +24,27 @@ void Scheduler::initialize(const Config& newConfig) {
 
     config = newConfig;
 
-    runningProcess.resize(
-        config.numCpu,
-        -1
-    );
-
-    coreBusy.resize(
+    coreBusy.assign(
         config.numCpu,
         false
     );
 
+    runningProcess.assign(
+        config.numCpu,
+        -1
+    );
+
+    lastHandledTick.assign(
+        config.numCpu,
+        0
+    );
+
+    rrCyclesUsed.assign(
+        config.numCpu,
+        0
+    );
+
+    cpuTicks = 0;
     initialized = true;
 }
 
@@ -67,7 +78,6 @@ void Scheduler::start() {
 void Scheduler::stop() {
     {
         std::lock_guard<std::mutex> lock(schedulerMutex);
-
         if (!running) {
             return;
         }
@@ -75,6 +85,8 @@ void Scheduler::stop() {
         running = false;
     }
 
+    tickCondition.notify_all();
+    
     if (schedulerThread.joinable()) {
         schedulerThread.join();
     }
@@ -97,7 +109,7 @@ void Scheduler::schedulerLoop() {
                 return;
             }
             
-            cpuTicks++;
+            ++cpuTicks;
             generateBatchProcessIfNeeded();
 
             if (config.scheduler == "fcfs") {
@@ -108,6 +120,8 @@ void Scheduler::schedulerLoop() {
             }
         }
 
+        tickCondition.notify_all();
+
         std::this_thread::sleep_for(
             std::chrono::milliseconds(500)
         );
@@ -115,70 +129,66 @@ void Scheduler::schedulerLoop() {
 }
 
 void Scheduler::workerLoop(int coreId) {
+    std::unique_lock<std::mutex> lock(schedulerMutex);
     while (true) {
+        tickCondition.wait(lock, [&]() {
+            return !running ||
+                   cpuTicks > lastHandledTick[coreId];
+        });
 
-        {
-            std::lock_guard<std::mutex> lock(schedulerMutex);
-
-            if (!running) {
-                return;
-            }
-
-            if (!coreBusy[coreId]) {
-            }
-
-            else {
-                const std::uint64_t currentTick = cpuTicks;
-
-                // A CPU core may only handle one cycle for each global CPU tick.
-                if (lastHandledTick[coreId] != currentTick) {
-                    lastHandledTick[coreId] = currentTick;
-
-                    const int processIndex = runningProcess[coreId];
-                    Process& process = processes[processIndex];
-
-                    bool finished = false;
-
-                    const bool wasSleeping = process.context.isSleep();
-
-                    const bool instructionReady =
-                        wasSleeping || currentTick >= process.nextExecutionTick;
-
-                    if (instructionReady) {
-                        const int instructionBefore = process.currentInstruction;
-
-                        finished = process.executeStep(coreId);
-
-                        if (process.currentInstruction > instructionBefore) {
-                            process.nextExecutionTick =
-                                currentTick
-                                + static_cast<std::uint64_t>(config.delayPerExec)
-                                + 1;
-                        }
-                    }
-
-                    if (config.scheduler == "rr") {
-                        ++rrCyclesUsed[coreId];
-                    }
-
-                    if (finished) {
-                        finishProcess(processIndex, coreId);
-                    }
-                    else if (
-                        config.scheduler == "rr" &&
-                        rrCyclesUsed[coreId] >=
-                            static_cast<std::uint64_t>(config.quantumCycles)
-                    ) {
-                        requeueProcess(processIndex, coreId);
-                    }
-                }
-
-            }
+        if (!running) {
+            return;
         }
 
-        std::this_thread::sleep_for(
-            std::chrono::milliseconds(1)
-        );
+        const std::uint64_t currentTick = cpuTicks;
+        lastHandledTick[coreId] = currentTick;
+
+        if (!coreBusy[coreId]) {
+            continue;
+        }
+
+        const int processIndex = runningProcess[coreId];
+        Process& process = processes[processIndex];
+
+        bool finished = false;
+
+        const bool wasSleeping = process.context.isSleep();
+
+        const bool instructionReady =
+            wasSleeping ||
+            currentTick >= process.nextExecutionTick;
+
+        if (instructionReady) {
+            const int instructionBefore =
+                process.currentInstruction;
+
+            finished = process.executeStep(coreId);
+
+            if (process.currentInstruction > instructionBefore) {
+                process.nextExecutionTick =
+                    currentTick
+                    + static_cast<std::uint64_t>(
+                        config.delayPerExec
+                    )
+                    + 1;
+            }
+        }
+        if (config.scheduler == "rr") {
+            ++rrCyclesUsed[coreId];
+        }
+
+        if (finished) {
+            finishProcess(processIndex, coreId);
+        }
+        else if (
+            config.scheduler == "rr" &&
+            rrCyclesUsed[coreId] >=
+                static_cast<std::uint64_t>(
+                    config.quantumCycles
+                )
+        ) {
+            requeueProcess(processIndex, coreId);
+        }
     }
 }
 
@@ -408,7 +418,6 @@ std::string Scheduler::nextGeneratedProcessName() {
 }
 
 void Scheduler::generateBatchProcessIfNeeded() {
-
     if (!batchGenerationEnabled) {
         return;
     }
@@ -459,7 +468,6 @@ void Scheduler::generateBatchProcessIfNeeded() {
 
 
 bool Scheduler::saveReportToFile(const std::string& filename) {
-    
     std::string reportContent = buildScreenList();
     
     std::ofstream file(filename, std::ios::app);
