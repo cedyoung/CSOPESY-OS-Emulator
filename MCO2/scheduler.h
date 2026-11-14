@@ -53,6 +53,9 @@ private:
     std::vector<int> runningProcess;
     std::vector<bool> coreBusy;
 
+    std::vector<std::uint64_t> lastHandledTick;
+    std::vector<std::uint64_t> rrCyclesUsed;
+    
     std::thread schedulerThread;
     std::vector<std::thread> workerThreads;
 

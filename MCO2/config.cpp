@@ -34,7 +34,7 @@ bool Config::loadConfigFile(const std::string& filename) {
                 minIns = std::stoi(value);
             } else if (key == "max-ins") {
                 maxIns = std::stoi(value);
-            } else if (key == "delays-per-exec") {
+            } else if (key == "delays-per-exec" || key == "delay-per-exec") {
                 delayPerExec = std::stoi(value);
             }
         }

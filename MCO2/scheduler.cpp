@@ -117,84 +117,67 @@ void Scheduler::schedulerLoop() {
 void Scheduler::workerLoop(int coreId) {
     while (true) {
 
-        int processIndex = -1;
-
         {
-            std::lock_guard<std::mutex> lock(
-                schedulerMutex
-            );
+            std::lock_guard<std::mutex> lock(schedulerMutex);
 
             if (!running) {
                 return;
             }
 
-            if (coreBusy[coreId]) {
-                processIndex =
-                    runningProcess[coreId];
-            }
-        }
-
-        if (processIndex == -1) {
-            std::this_thread::sleep_for(
-                std::chrono::milliseconds(5)
-            );
-
-            continue;
-        }
-
-
-        if (config.scheduler == "fcfs") {
-
-            bool finished;
-            {
-                std::lock_guard<std::mutex> stepLock(schedulerMutex);
-                finished = processes[processIndex].executeStep(coreId);
+            if (!coreBusy[coreId]) {
             }
 
-            if (finished) {
-                std::lock_guard<std::mutex> lock(
-                    schedulerMutex
-                );
-
-                finishProcess(
-                    processIndex,
-                    coreId
-                );
-            }
-        }
-
-
-        else if (config.scheduler == "rr") {
-
-            bool finished = false;
-
-            for (int cycle = 0;
-                 cycle < config.quantumCycles;
-                 ++cycle) {
-
-                {
-                    std::lock_guard<std::mutex> stepLock(schedulerMutex);
-                    finished = processes[processIndex].executeStep(coreId);
-                }
-
-                if (finished) {
-                    break;
-                }
-            }
-
-            std::lock_guard<std::mutex> lock(
-                schedulerMutex
-            );
-
-            if (finished) {
-                finishProcess(processIndex, coreId);
-            }
             else {
-                requeueProcess(processIndex, coreId);
+                const std::uint64_t currentTick = cpuTicks;
+
+                // A CPU core may only handle one cycle for each global CPU tick.
+                if (lastHandledTick[coreId] != currentTick) {
+                    lastHandledTick[coreId] = currentTick;
+
+                    const int processIndex = runningProcess[coreId];
+                    Process& process = processes[processIndex];
+
+                    bool finished = false;
+
+                    const bool wasSleeping = process.context.isSleep();
+
+                    const bool instructionReady =
+                        wasSleeping || currentTick >= process.nextExecutionTick;
+
+                    if (instructionReady) {
+                        const int instructionBefore = process.currentInstruction;
+
+                        finished = process.executeStep(coreId);
+
+                        if (process.currentInstruction > instructionBefore) {
+                            process.nextExecutionTick =
+                                currentTick
+                                + static_cast<std::uint64_t>(config.delayPerExec)
+                                + 1;
+                        }
+                    }
+
+                    if (config.scheduler == "rr") {
+                        ++rrCyclesUsed[coreId];
+                    }
+
+                    if (finished) {
+                        finishProcess(processIndex, coreId);
+                    }
+                    else if (
+                        config.scheduler == "rr" &&
+                        rrCyclesUsed[coreId] >=
+                            static_cast<std::uint64_t>(config.quantumCycles)
+                    ) {
+                        requeueProcess(processIndex, coreId);
+                    }
+                }
+
             }
         }
+
         std::this_thread::sleep_for(
-            std::chrono::milliseconds(5)
+            std::chrono::milliseconds(1)
         );
     }
 }
@@ -220,6 +203,7 @@ void Scheduler::dispatchFCFS() {
             processIndex;
 
         coreBusy[freeCore] = true;
+        rrCyclesUsed[freeCore] = 0;
     }
 }
 
@@ -244,6 +228,7 @@ void Scheduler::dispatchRoundRobin() {
             processIndex;
 
         coreBusy[freeCore] = true;
+        rrCyclesUsed[freeCore] = 0;
     }
 }
 
@@ -266,6 +251,7 @@ void Scheduler::finishProcess(int processIndex, int coreId) {
 
     runningProcess[coreId] = -1;
     coreBusy[coreId] = false;
+    rrCyclesUsed[coreId] = 0;
 }
 
 void Scheduler::requeueProcess(int processIndex, int coreId) {
@@ -274,6 +260,7 @@ void Scheduler::requeueProcess(int processIndex, int coreId) {
 
     runningProcess[coreId] = -1;
     coreBusy[coreId] = false;
+    rrCyclesUsed[coreId] = 0;
 
     readyQueue.push(processIndex);
 }
@@ -347,7 +334,6 @@ std::string Scheduler::buildScreenList() {
         if (process.state == ProcessState::RUNNING || process.state == ProcessState::WAITING || process.state == ProcessState::READY) {
             hasRunning = true;
 
-
             int assignedCore = -1;
             for (int c = 0; c < config.numCpu; ++c) {
                 if (runningProcess[c] != -1 && processes[runningProcess[c]].processId == process.processId) {
@@ -371,7 +357,6 @@ std::string Scheduler::buildScreenList() {
     if (!hasRunning) {
         output << "None\n";
     }
-
 
     output << "\nFinished processes:\n";
     bool hasFinished = false;
@@ -454,7 +439,6 @@ void Scheduler::generateBatchProcessIfNeeded() {
     );
 
     int totalInstructions = dis(gen);
-
 
     Process newProc(
         name,

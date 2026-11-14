@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <cstdint>
 
 #include "instruction.h"
 
@@ -30,6 +31,7 @@ struct Process {
     std::vector<LogEntry> logs;
     Execution context;
 
+    std::uint64_t nextExecutionTick = 0;
     Process(std::string procName, int id, ProgramPtr program);
     bool executeStep(int coreId = 0);
 
