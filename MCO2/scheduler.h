@@ -42,6 +42,8 @@ private:
 
     void finishProcess(int processIndex, int coreId);
     void requeueProcess(int processIndex, int coreId);
+    void sleepProcess(int processIndex, int coreId);
+    void finishSleepingProcess();
 
     void generateBatchProcessIfNeeded();
     std::string nextGeneratedProcessName();
@@ -51,6 +53,7 @@ private:
 
     std::vector<Process> processes;
     std::queue<int> readyQueue;
+    std::vector<int> sleepingProcess;
     std::vector<int> runningProcess;
     std::vector<bool> coreBusy;
 
