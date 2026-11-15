@@ -111,6 +111,7 @@ void Scheduler::schedulerLoop() {
             
             ++cpuTicks;
             generateBatchProcessIfNeeded();
+            finishSleepingProcess();
 
             if (config.scheduler == "fcfs") {
                 dispatchFCFS();
@@ -180,6 +181,9 @@ void Scheduler::workerLoop(int coreId) {
         if (finished) {
             finishProcess(processIndex, coreId);
         }
+        else if (process.context.isSleep()){
+            sleepProcess(processIndex, coreId);
+        }
         else if (
             config.scheduler == "rr" &&
             rrCyclesUsed[coreId] >=
@@ -190,6 +194,40 @@ void Scheduler::workerLoop(int coreId) {
             requeueProcess(processIndex, coreId);
         }
     }
+}
+
+void Scheduler::sleepProcess(int processIndex, int coreId){
+    processes[processIndex].state = ProcessState::WAITING;
+
+    runningProcess[coreId] = -1;
+    coreBusy[coreId] = false;
+    rrCyclesUsed[coreId] = 0;
+
+    sleepingProcess.push_back(processIndex);
+    
+    
+}
+
+void Scheduler::finishSleepingProcess() {
+    for (auto iterate = sleepingProcess.begin();
+        iterate != sleepingProcess.end();) {
+        Process& process = processes[*iterate];
+            process.context.tickSleep();
+
+
+            
+            if (process.context.isSleep()) {
+                ++iterate;
+                continue;
+            }
+            if (process.context.isDone()) {
+                process.state = ProcessState::FINISHED;
+            } else {
+                process.state = ProcessState::READY;
+                readyQueue.push(*iterate);
+            }
+            iterate = sleepingProcess.erase(iterate);
+        }
 }
 
 void Scheduler::dispatchFCFS() {
