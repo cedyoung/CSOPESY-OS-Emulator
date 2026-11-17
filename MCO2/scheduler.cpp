@@ -149,7 +149,7 @@ void Scheduler::workerLoop(int coreId) {
         }
 
         const int processIndex = runningProcess[coreId];
-        Process& process = processes[processIndex];
+        Process& process = *processes[processIndex];
 
         bool finished = false;
 
@@ -197,7 +197,7 @@ void Scheduler::workerLoop(int coreId) {
 }
 
 void Scheduler::sleepProcess(int processIndex, int coreId){
-    processes[processIndex].state = ProcessState::WAITING;
+    processes[processIndex]->state = ProcessState::WAITING;
 
     runningProcess[coreId] = -1;
     coreBusy[coreId] = false;
@@ -211,7 +211,7 @@ void Scheduler::sleepProcess(int processIndex, int coreId){
 void Scheduler::finishSleepingProcess() {
     for (auto iterate = sleepingProcess.begin();
         iterate != sleepingProcess.end();) {
-        Process& process = processes[*iterate];
+        Process& process = *processes[*iterate];
             process.context.tickSleep();
 
 
@@ -244,7 +244,7 @@ void Scheduler::dispatchFCFS() {
 
         readyQueue.pop();
 
-        processes[processIndex].state =
+        processes[processIndex]->state =
             ProcessState::RUNNING;
 
         runningProcess[freeCore] =
@@ -269,7 +269,7 @@ void Scheduler::dispatchRoundRobin() {
 
         readyQueue.pop();
 
-        processes[processIndex].state =
+        processes[processIndex]->state =
             ProcessState::RUNNING;
 
         runningProcess[freeCore] =
@@ -294,7 +294,7 @@ int Scheduler::findFreeCore() const {
 }
 
 void Scheduler::finishProcess(int processIndex, int coreId) {
-    processes[processIndex].state =
+    processes[processIndex]->state =
         ProcessState::FINISHED;
 
     runningProcess[coreId] = -1;
@@ -303,7 +303,7 @@ void Scheduler::finishProcess(int processIndex, int coreId) {
 }
 
 void Scheduler::requeueProcess(int processIndex, int coreId) {
-    processes[processIndex].state =
+    processes[processIndex]->state =
         ProcessState::READY;
 
     runningProcess[coreId] = -1;
@@ -323,7 +323,11 @@ void Scheduler::createProcess(const std::string& name) {
     int totalInstructions = dis(gen);
 
 
-    Process newProc(name, nextProcessId++, generateProgram(name, totalInstructions, gen));
+    auto newProc = std::make_shared<Process>(
+        name,
+        nextProcessId++,
+        generateProgram(name, totalInstructions, gen)
+    );
     processes.push_back(newProc);
 
     int processIndex =
@@ -336,7 +340,7 @@ void Scheduler::createProcess(const std::string& name) {
     std::cout
         << "Process '" << name
         << "' created with ID "
-        << newProc.processId
+        << newProc->processId
         << " and "
         << totalInstructions
         << " instructions.\n";
@@ -345,8 +349,8 @@ void Scheduler::createProcess(const std::string& name) {
 Process* Scheduler::findProcess(const std::string& name) {
     std::lock_guard<std::mutex> lock(schedulerMutex);
     for (auto& proc : processes) {
-        if (proc.name == name) {
-            return &proc;
+        if (proc->name == name) {
+            return proc.get();
         }
     }
     return nullptr;
@@ -378,13 +382,14 @@ std::string Scheduler::buildScreenList() {
 
     output << "Running processes:\n";
     bool hasRunning = false;
-    for (const Process& process : processes) {
+    for (const auto& processPtr : processes) {
+        const Process& process = *processPtr;
         if (process.state == ProcessState::RUNNING || process.state == ProcessState::WAITING || process.state == ProcessState::READY) {
             hasRunning = true;
 
             int assignedCore = -1;
             for (int c = 0; c < config.numCpu; ++c) {
-                if (runningProcess[c] != -1 && processes[runningProcess[c]].processId == process.processId) {
+                if (runningProcess[c] != -1 && processes[runningProcess[c]]->processId == process.processId) {
                     assignedCore = c;
                     break;
                 }
@@ -408,7 +413,8 @@ std::string Scheduler::buildScreenList() {
 
     output << "\nFinished processes:\n";
     bool hasFinished = false;
-    for (const Process& process : processes) {
+    for (const auto& processPtr : processes) {
+        const Process& process = *processPtr;
         if (process.state == ProcessState::FINISHED) {
             hasFinished = true;
 
@@ -487,11 +493,12 @@ void Scheduler::generateBatchProcessIfNeeded() {
 
     int totalInstructions = dis(gen);
 
-    Process newProc(
+    auto newProc = std::make_shared<Process>(
         name,
         nextProcessId++,
         generateProgram(name, totalInstructions, gen)
     );
+
 
     processes.push_back(newProc);
 

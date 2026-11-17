@@ -51,7 +51,7 @@ private:
     Config config;
     int nextProcessId = 1;
 
-    std::vector<Process> processes;
+    std::vector<std::shared_ptr<Process>> processes;
     std::queue<int> readyQueue;
     std::vector<int> sleepingProcess;
     std::vector<int> runningProcess;
@@ -63,7 +63,7 @@ private:
     std::thread schedulerThread;
     std::vector<std::thread> workerThreads;
 
-    std::mutex schedulerMutex;
+    mutable std::mutex schedulerMutex;
     std::condition_variable tickCondition;
 
     std::uint64_t cpuTicks = 0;
