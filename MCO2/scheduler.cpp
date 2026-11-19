@@ -319,8 +319,9 @@ void Scheduler::createProcess(const std::string& name) {
 
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<> dis(config.minIns, config.maxIns);
-    int totalInstructions = dis(gen);
+    
+    std::uniform_int_distribution<std::uint64_t> dis(config.minIns, config.maxIns);
+    std::uint64_t totalInstructions = dis(gen);
 
 
     auto newProc = std::make_shared<Process>(
@@ -486,12 +487,8 @@ void Scheduler::generateBatchProcessIfNeeded() {
     std::random_device rd;
     std::mt19937 gen(rd());
 
-    std::uniform_int_distribution<> dis(
-        config.minIns,
-        config.maxIns
-    );
-
-    int totalInstructions = dis(gen);
+    std::uniform_int_distribution<std::uint64_t> dis(config.minIns, config.maxIns);
+    std::uint64_t totalInstructions = dis(gen);
 
     auto newProc = std::make_shared<Process>(
         name,
