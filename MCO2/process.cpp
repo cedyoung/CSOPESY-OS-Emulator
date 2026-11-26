@@ -12,22 +12,32 @@ std::string getCurrentTimestamp() {
     return ss.str();
 }
 
+std::string getShortTime() {
+    auto now = std::chrono::system_clock::now();
+    auto t = std::chrono::system_clock::to_time_t(now);
+    std::stringstream ss;
+    ss << std::put_time(std::localtime(&t), "%H:%M:%S");
+    return ss.str();
+}
 
-Process::Process(std::string procName, int id, ProgramPtr program) 
+
+Process::Process(std::string procName, int id, ProgramPtr program, std::size_t memoryBytes, DemandPagingAllocator& allocator) 
     : name(procName), 
       processId(id), 
       totalInstructions(static_cast<int>(countInstructions(*program))), 
       currentInstruction(0), 
       state(ProcessState::READY),
       createdAt(getCurrentTimestamp()),
-      context(procName, program) {
+      context(procName, program, id, memoryBytes, allocator),
+      memoryRequired(memoryBytes),
+      numPages((memoryBytes + 63) / 64) {
 }
 
 
 
 
 bool Process::executeStep(int coreId) {
-    if (state == ProcessState::FINISHED) {
+    if (state == ProcessState::FINISHED || state == ProcessState::VIOLATED) {
         return true;
     }
 
@@ -45,24 +55,30 @@ bool Process::executeStep(int coreId) {
 
     state = ProcessState::RUNNING;
     StepResult r = context.step();
-    currentInstruction = static_cast<int>(context.instructionsExecuted());
+    try {
+        r = context.step();
+    } catch (const MemoryAccessViolation& e) {
+        violationAddress = e.address();
+        violationTime = getShortTime(); // "HH:MM:SS"
+        state = ProcessState::VIOLATED;
+        currentInstruction = static_cast<int>(context.instructionsExecuted());
+        return true;
+    }
 
-    if (r.hasOutput){
+    currentInstruction = static_cast<int>(context.instructionsExecuted());
+    pageFaults = context.pageFaults();
+    residentPages = context.residentPages();
+
+    
+
+    if (r.hasOutput) {
         LogEntry log;
         log.timestamp = getCurrentTimestamp();
         log.coreId = coreId;
         log.message = r.output;
         logs.push_back(log);
     }
-
-    if (r.sleepStarted){
-        state = ProcessState::WAITING;
-    }
-    
-    if (r.done) {
-        state = ProcessState::FINISHED;
-        return true;
-    }
-
+    if (r.sleepStarted) state = ProcessState::WAITING;
+    if (r.done) { state = ProcessState::FINISHED; return true; }
     return false;
 }

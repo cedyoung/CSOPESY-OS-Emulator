@@ -56,6 +56,12 @@ bool Config::loadConfigFile(const std::string& filename) {
     bool foundMaxIns = false;
     bool foundDelay = false;
 
+    bool foundMaxOveralMem = false;
+    bool foundMemPerFrame = false;
+    bool foundMinMemPerProc = false;
+    bool foundMaxMemPerProc = false;
+    bool foundReplacement = false;
+
     std::string line;
     while (std::getline(file, line)) {
         if (line.empty()) {
@@ -206,7 +212,65 @@ bool Config::loadConfigFile(const std::string& filename) {
             delayPerExec = temp;
             foundDelay = true;
         }
+        
 
+        else if (key == "demand-paging") {
+            if (value != "true" && value != "false") {
+                std::cout << "Error: demand-paging must be \"true\" or \"false\".\n";
+                return false;
+            }
+            demandPaging = (value == "true");
+            // foundDemand = true;   // uncomment if you made it mandatory
+}
+
+        else if (key == "replacement-policy") {
+            if (value != "fifo" && value != "lru") {
+                std::cout << "Error: replacement-policy must be \"fifo\" or \"lru\".\n";
+                return false;
+            }
+            replacementPolicy = value;
+            foundReplacement = true;
+        }
+
+        else if (key == "max-overall-mem") {
+            std::uint64_t temp;
+            if (!parseUnsigned(value, temp)) {
+                std::cout << "Error: Invalid max-overall-mem value.\n";
+                return false;
+            }
+            maxOveralMem = temp;
+            foundMaxOveralMem = true;
+}
+
+        else if (key == "mem-per-frame") {
+            std::uint64_t temp;
+            if (!parseUnsigned(value, temp)) {
+                std::cout << "Error: Invalid mem-per-frame value.\n";
+                return false;
+            }
+            memPerFrame = temp;
+            foundMemPerFrame = true;
+        }
+
+        else if (key == "min-mem-per-proc") {
+            std::uint64_t temp;
+            if (!parseUnsigned(value, temp)) {
+                std::cout << "Error: Invalid min-mem-per-proc value.\n";
+                return false;
+            }
+            minMemPerProc     = temp;
+            foundMinMemPerProc = true;
+        }
+
+        else if (key == "max-mem-per-proc") {
+            std::uint64_t temp;
+            if (!parseUnsigned(value, temp)) {
+                std::cout << "Error: Invalid max-mem-per-proc value.\n";
+                return false;
+            }
+            maxMemPerProc     = temp;
+            foundMaxMemPerProc = true;
+        }
         else {
             std::cout
                 << "Error: Unknown configuration key: "
@@ -233,5 +297,49 @@ bool Config::loadConfigFile(const std::string& filename) {
         return false;
     }
 
+    // 1. required keys present?
+    if (!foundMaxOveralMem || !foundMemPerFrame ||
+        !foundMinMemPerProc || !foundMaxMemPerProc ||
+        !foundReplacement /* || !foundDemand */) {
+        std::cout << "Error: Configuration file is missing one or more required "
+                 "memory parameters.\n";
+        return false;
+    }
+
+    // 2. power-of-two check for the [64, 65536] memory ranges
+    auto isPowerOfTwo = [](std::uint64_t v) {
+        return v != 0 && (v & (v - 1)) == 0;
+    };
+    auto inRange = [&](std::uint64_t v) {
+        return v >= 64 && v <= 65536 && isPowerOfTwo(v);
+    };
+
+    if (!inRange(maxOveralMem)) {
+        std::cout << "Error: max-overall-mem must be a power of 2 in [64, 65536].\n";
+        return false;
+    }
+    if (!inRange(memPerFrame)) {
+        std::cout << "Error: mem-per-frame must be a power of 2 in [64, 65536].\n";
+        return false;
+    }
+    if (!inRange(minMemPerProc) || !inRange(maxMemPerProc)) {
+        std::cout << "Error: min/max-mem-per-proc must be powers of 2 in [64, 65536].\n";
+        return false;
+    }
+
+    // 3. cross-field consistency
+    if (memPerFrame > maxOveralMem) {
+        std::cout << "Error: mem-per-frame (" << memPerFrame
+                  << ") exceeds max-overall-mem (" << maxOveralMem << ").\n";
+        return false;
+    }
+    if (maxOveralMem % memPerFrame != 0) {
+        std::cout << "Error: max-overall-mem must be divisible by mem-per-frame.\n";
+        return false;
+    }
+    if (minMemPerProc > maxMemPerProc) {
+        std::cout << "Error: min-mem-per-proc cannot be greater than max-mem-per-proc.\n";
+        return false;
+    }
     return true;
 }

@@ -5,3 +5,9 @@ batch-process-freq 100
 min-ins 1000
 max-ins 2000
 delays-per-exec 0
+demand-paging true
+replacement-policy "fifo"
+max-overall-mem 16384
+mem-per-frame 64
+min-mem-per-proc 64
+max-mem-per-proc 4096
