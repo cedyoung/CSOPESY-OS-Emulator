@@ -28,13 +28,13 @@ enum class InstructionCommand {
     SUBTRACT,
     SLEEP,
     FOR,
-    READ,      // NEW: READ var, 0xADDR
-    WRITE      // NEW: WRITE 0xADDR, value
+    READ,
+    WRITE
 };
 
 struct Operand {
-    bool          isVar = false;
-    std::string   name;
+    bool isVar = false;
+    std::string name;
     std::uint16_t value = 0;
 
     static Operand variable(const std::string& varName);
@@ -43,32 +43,31 @@ struct Operand {
 
 struct Instruction;
 
-using InstructionPtr  = std::shared_ptr<const Instruction>;
+using InstructionPtr = std::shared_ptr<const Instruction>;
 using InstructionList = std::vector<InstructionPtr>;
-using ProgramPtr      = std::shared_ptr<const InstructionList>;
+using ProgramPtr = std::shared_ptr<const InstructionList>;
 
 struct Instruction {
     InstructionCommand type = InstructionCommand::PRINT;
 
-    // PRINT
+
     std::string message;
     std::string printVariable;
 
-    // DECLARE / ADD / SUBTRACT
-    std::string   var;
-    std::uint16_t declareValue = 0;
-    Operand       lhs;
-    Operand       rhs;
 
-    // SLEEP
+    std::string var;
+    std::uint16_t declareValue = 0;
+    Operand lhs;
+    Operand rhs;
+
+
     std::uint8_t  sleepTicks = 0;
 
-    // FOR
-    ProgramPtr    body;
+    ProgramPtr body;
     std::uint32_t repeats = 0;
 
-    // READ / WRITE
-    std::string   readTarget;      // READ: variable to receive the value
+
+    std::string readTarget;
     std::uint16_t memoryAddress = 0;
 
     static InstructionPtr makePrint(const std::string& message,
@@ -85,65 +84,62 @@ struct Instruction {
 };
 
 struct StepResult {
-    bool               executed     = false;
-    InstructionCommand type         = InstructionCommand::PRINT;
-    bool               hasOutput    = false;
-    std::string        output;
-    bool               sleepStarted = false;
-    bool               done         = false;
+    bool executed = false;
+    InstructionCommand type = InstructionCommand::PRINT;
+    bool hasOutput = false;
+    std::string output;
+    bool sleepStarted = false;
+    bool done = false;
 };
 
 class Execution {
 public:
-    Execution() = default;
 
-    // NEW constructor: needs pid + memory size + the allocator.
+
     Execution(const std::string& processName,
-              ProgramPtr         program,
-              int                pid,
-              std::size_t        memoryBytes,
+              ProgramPtr program,
+              int pid,
+              std::size_t memoryBytes,
               DemandPagingAllocator& allocator);
 
     StepResult step();
-    void       tickSleep();
+    void tickSleep();
 
     bool isSleep() const { return sleepRemaining_ > 0; }
-    bool isDone()  const { return done_ && sleepRemaining_ == 0; }
+    bool isDone() const { return done_ && sleepRemaining_ == 0; }
 
     std::uint64_t instructionsExecuted() const { return executed_; }
-    std::uint32_t sleepRemaining()      const { return sleepRemaining_; }
+    std::uint32_t sleepRemaining() const { return sleepRemaining_; }
 
     // forwarded to ProcessMemory for process-smi / vmstat
-    std::size_t pageFaults()    const { return memory_.pageFaults(); }
+    std::size_t pageFaults() const { return memory_.pageFaults(); }
     std::size_t residentPages() const { return memory_.residentPages(); }
     
 
 private:
     struct Frame {
-        ProgramPtr    list;
-        std::size_t   index;
+        ProgramPtr list;
+        std::size_t index;
         std::uint32_t remaining;
     };
 
     const Instruction* settle();
-    void               execute(const Instruction& ins, StepResult& result);
-    std::uint16_t      resolveOperand(const Operand& op);
+    void execute(const Instruction& ins, StepResult& result);
+    std::uint16_t resolveOperand(const Operand& op);
 
-    std::string       processName_;
+    std::string processName_;
     std::vector<Frame> stack_;
-    ProcessMemory     memory_;                 // replaced variables_
-    std::uint32_t     sleepRemaining_ = 0;
-    std::uint64_t     executed_       = 0;
-    bool              done_           = false;
+    ProcessMemory memory_;
+    std::uint32_t sleepRemaining_ = 0;
+    std::uint64_t executed_ = 0;
+    bool done_ = false;
 };
 
-// ---------------------------------------------------------------------------
-// Free functions
-// ---------------------------------------------------------------------------
+
 
 std::uint64_t countInstructions(const InstructionList& program);
 
-int           maxForDepth(const InstructionList& program);
+int maxForDepth(const InstructionList& program);
 
 ProgramPtr generateProgram(const std::string& processName,
                            std::uint64_t targetInstructions,
