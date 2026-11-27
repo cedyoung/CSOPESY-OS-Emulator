@@ -48,7 +48,7 @@ struct Process {
      Process(std::string procName, int id, ProgramPtr program, 
             std::size_t memoryBytes, DemandPagingAllocator& allocator);
 
-    bool executeStep(int coreId = 0);
+    
 
 };
 
