@@ -111,7 +111,7 @@ std::string operandToString(const Operand& op) {
     return op.isVar ? op.name : std::to_string(op.value);
 }
 
-std::string hexAddr(std::uint16_t addr) {
+std::string hexAddr(std::uint64_t addr) {
     std::ostringstream o;
     o << "0x" << std::hex << std::uppercase << addr;
     return o.str();
