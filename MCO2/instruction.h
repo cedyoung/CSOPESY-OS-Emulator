@@ -12,13 +12,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "memory.h"
-#include "process_memory.h"
-
-
-
-
-
 constexpr int MAX_NESTING = 3;
 
 enum class InstructionCommand {
@@ -68,7 +61,7 @@ struct Instruction {
 
 
     std::string readTarget;
-    std::uint16_t memoryAddress = 0;
+    std::uint64_t memoryAddress = 0;
 
     static InstructionPtr makePrint(const std::string& message,
                                     const std::string& variable = "");
@@ -79,8 +72,8 @@ struct Instruction {
                                        const Operand& lhs, const Operand& rhs);
     static InstructionPtr makeSleep(std::uint8_t ticks);
     static InstructionPtr makeFor(InstructionList body, std::uint32_t repeats);
-    static InstructionPtr makeRead(const std::string& var, std::uint16_t addr);
-    static InstructionPtr makeWrite(std::uint16_t addr, const Operand& value);
+    static InstructionPtr makeRead(const std::string& var, std::uint64_t addr);
+    static InstructionPtr makeWrite(std::uint64_t addr, const Operand& value);
 };
 
 struct StepResult {
