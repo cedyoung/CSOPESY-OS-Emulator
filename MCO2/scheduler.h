@@ -3,6 +3,8 @@
 
 #include "config.h"
 #include "process.h"
+#include "memory.h"
+#include "backing_store.h"
 
 #include <mutex>
 #include <thread>
@@ -21,9 +23,11 @@ public:
     void start();
     void stop();
 
-    void createProcess(const std::string& name);
     
     std::string buildScreenList();
+
+    std::string buildVmstat();
+    std::string buildProcessSmi();
 
     Process* findProcess(const std::string& name);
 
@@ -31,6 +35,14 @@ public:
 
     void startBatchGeneration();
     void stopBatchGeneration();
+
+
+    
+
+    void createProcessWithMemory(const std::string& name,
+                             std::size_t memoryBytes,
+                             std::vector<InstructionPtr> userInstructions = {});
+    
     
 private:
     void schedulerLoop();
@@ -65,6 +77,10 @@ private:
 
     mutable std::mutex schedulerMutex;
     std::condition_variable tickCondition;
+
+    std::unique_ptr<BackingStore> backingStore_;
+    std::unique_ptr<DemandPagingAllocator> allocator_;
+    std::uint64_t activeCpuTicks_ = 0;
 
     std::uint64_t cpuTicks = 0;
 

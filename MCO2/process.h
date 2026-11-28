@@ -11,7 +11,8 @@ enum class ProcessState {
     READY,
     RUNNING,
     WAITING,
-    FINISHED
+    FINISHED,
+    VIOLATED
 };
 
 struct LogEntry {
@@ -32,10 +33,24 @@ struct Process {
     Execution context;
 
     std::uint64_t nextExecutionTick = 0;
-    Process(std::string procName, int id, ProgramPtr program);
+
+
     bool executeStep(int coreId = 0);
 
 
+    std::size_t memoryRequired = 0;
+    std::size_t numPages = 0;
+    std::size_t pageFaults = 0;
+    std::size_t residentPages = 0;
+    std::uint64_t violationAddress = 0;
+    std::string violationTime;
+
+     Process(std::string procName, int id, ProgramPtr program, 
+            std::size_t memoryBytes, DemandPagingAllocator& allocator);
+
+    
+
 };
+
 
 #endif
