@@ -7,8 +7,6 @@
 #include <string>
 #include <utility>
 
-
-// anonymous helpers
 namespace {
 
 constexpr std::int64_t UINT16_MAX_VALUE = 65535;
@@ -177,17 +175,14 @@ InstructionPtr parseOne(const std::string& raw) {
         std::istringstream in(rest);
         std::string var, addr;
         if (!(in >> var >> addr)) throw std::invalid_argument("READ");
-        return Instruction::makeRead(var,
-            static_cast<std::uint16_t>(parseHexOrDec(addr)));
+        return Instruction::makeRead(var, parseHexOrDec(addr));
     }
 
     if (op == "WRITE") {
         std::istringstream in(rest);
         std::string addr, val;
         if (!(in >> addr >> val)) throw std::invalid_argument("WRITE");
-        return Instruction::makeWrite(
-            static_cast<std::uint16_t>(parseHexOrDec(addr)),
-            operandFromToken(val));
+        return Instruction::makeWrite(parseHexOrDec(addr), operandFromToken(val));
     }
 
     if (op.rfind("PRINT", 0) == 0) {
@@ -284,7 +279,7 @@ InstructionPtr Instruction::makeFor(InstructionList body, std::uint32_t repeats)
     return ins;
 }
 
-InstructionPtr Instruction::makeRead(const std::string& var, std::uint16_t addr) {
+InstructionPtr Instruction::makeRead(const std::string& var, std::uint64_t addr) {
     auto ins = std::make_shared<Instruction>();
     ins->type = InstructionCommand::READ;
     ins->readTarget = var;
@@ -292,7 +287,7 @@ InstructionPtr Instruction::makeRead(const std::string& var, std::uint16_t addr)
     return ins;
 }
 
-InstructionPtr Instruction::makeWrite(std::uint16_t addr, const Operand& value) {
+InstructionPtr Instruction::makeWrite(std::uint64_t addr, const Operand& value) {
     auto ins = std::make_shared<Instruction>();
     ins->type = InstructionCommand::WRITE;
     ins->memoryAddress = addr;
